@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  color-scheme: light;
+  --background: #fafafa;
   --foreground: #171717;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
+  --danger: #dc2626;
+}
+
+/* Explicit choice from Settings. */
+:root.dark {
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #171717;
+  --muted: #9ca3af;
+  --border: #2e2e2e;
+  --accent: #818cf8;
+  --accent-foreground: #0a0a0a;
+  --danger: #f87171;
+}
+
+/* "System": follow the device unless light was chosen. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --card: #171717;
+    --muted: #9ca3af;
+    --border: #2e2e2e;
+    --accent: #818cf8;
+    --accent-foreground: #0a0a0a;
+    --danger: #f87171;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium hover:border-accent disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply border-accent bg-accent text-accent-foreground hover:opacity-90;
+  }
+
+  .btn-danger {
+    @apply text-danger hover:border-danger;
+  }
+
+  .card {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  .field {
+    @apply rounded-md border border-border bg-card px-2 py-1.5 text-sm;
+  }
 }
