@@ -1,82 +1,272 @@
 @import "tailwindcss";
 
+/* Warm vanilla paper, charcoal ink, lime buttons and sky-blue accents. */
 :root {
   color-scheme: light;
-  --background: #fafafa;
-  --foreground: #171717;
-  --card: #ffffff;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --accent: #4f46e5;
+  --background: #f6f2ee;
+  --foreground: #383838;
+  --card: #f6f2ee;
+  --paper: #f5f3ef;
+  --muted: #6c6661;
+  --border: #383838;
+  --line: #dad8d7;
+  --track: #e5ded5;
+  --accent: #058bff;
   --accent-foreground: #ffffff;
-  --danger: #dc2626;
+  --lime: #f4ffc9;
+  --lime-strong: #e9ff91;
+  --sky: #ceebff;
+  --lavender: #b095fa;
+  --melon: #fd7876;
+  --danger: #d93a36;
+  --grain-opacity: 1;
 }
 
 /* Explicit choice from Settings. */
 :root.dark {
   color-scheme: dark;
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #171717;
-  --muted: #9ca3af;
-  --border: #2e2e2e;
-  --accent: #818cf8;
-  --accent-foreground: #0a0a0a;
-  --danger: #f87171;
+  --background: #23211f;
+  --foreground: #f3eee8;
+  --card: #2c2926;
+  --paper: #262321;
+  --muted: #aaa39c;
+  --border: #77706a;
+  --line: #3b3734;
+  --track: #3b3734;
+  --accent: #3aa3ff;
+  --accent-foreground: #101010;
+  --sky: #1f3a52;
+  --danger: #ff8a86;
+  --grain-opacity: 0.35;
 }
 
 /* "System": follow the device unless light was chosen. */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     color-scheme: dark;
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card: #171717;
-    --muted: #9ca3af;
-    --border: #2e2e2e;
-    --accent: #818cf8;
-    --accent-foreground: #0a0a0a;
-    --danger: #f87171;
+    --background: #23211f;
+    --foreground: #f3eee8;
+    --card: #2c2926;
+    --paper: #262321;
+    --muted: #aaa39c;
+    --border: #77706a;
+    --line: #3b3734;
+    --track: #3b3734;
+    --accent: #3aa3ff;
+    --accent-foreground: #101010;
+    --sky: #1f3a52;
+    --danger: #ff8a86;
+    --grain-opacity: 0.35;
   }
+}
+
+/* Public pages are designed in light only. */
+.theme-light {
+  color-scheme: light;
+  --background: #f6f2ee;
+  --foreground: #383838;
+  --card: #f6f2ee;
+  --paper: #f5f3ef;
+  --muted: #6c6661;
+  --border: #383838;
+  --line: #dad8d7;
+  --track: #e5ded5;
+  --accent: #058bff;
+  --accent-foreground: #ffffff;
+  --sky: #ceebff;
+  --danger: #d93a36;
+  --grain-opacity: 1;
+  color: var(--foreground);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
+  --color-paper: var(--paper);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-line: var(--line);
+  --color-track: var(--track);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-lime: var(--lime);
+  --color-lime-strong: var(--lime-strong);
+  --color-sky: var(--sky);
+  --color-lavender: var(--lavender);
+  --color-melon: var(--melon);
   --color-danger: var(--danger);
-  --font-sans: var(--font-geist-sans);
+  --color-ink: #383838;
+  --color-vanilla: #f6f2ee;
+  --font-sans: var(--font-figtree);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-figtree), Arial, Helvetica, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 @layer components {
+  /* Paper grain, as an overlay so it works on any background colour. In this
+     layer, so a utility such as `absolute` still overrides its position. */
+  .grain {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: url("/art/grain.svg");
+    opacity: var(--grain-opacity);
+  }
+
   .btn {
-    @apply inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium hover:border-accent disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[13px] border border-border bg-card px-4 font-mono text-sm font-semibold uppercase text-foreground transition-colors duration-200 hover:bg-track disabled:cursor-not-allowed disabled:opacity-50 max-md:h-10 max-md:px-3 max-md:text-xs;
   }
 
   .btn-primary {
-    @apply border-accent bg-accent text-accent-foreground hover:opacity-90;
+    @apply border-ink bg-lime text-ink hover:bg-lime-strong;
   }
 
   .btn-danger {
-    @apply text-danger hover:border-danger;
+    @apply text-danger;
+  }
+
+  .btn-danger-solid {
+    @apply border-ink bg-melon text-ink hover:opacity-90;
+  }
+
+  /* Square button holding only an icon; needs an aria-label. */
+  .btn-icon {
+    @apply w-11 px-0 max-md:w-10 max-md:px-0;
+  }
+
+  .modal {
+    @apply m-auto w-[calc(100%-2rem)] rounded-[20px] border-2 border-border bg-card text-foreground shadow-[6px_6px_0_0_var(--border)];
+  }
+
+  .modal::backdrop {
+    background: rgb(56 56 56 / 0.45);
+  }
+
+  /* Rows off screen skip layout and paint, so long lists stay fast. */
+  .row-line {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 66px;
+  }
+
+  .row-tile {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 240px;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-[20px] bg-track;
   }
 
   .card {
-    @apply rounded-lg border border-border bg-card p-4;
+    @apply rounded-[24px] border border-border bg-card p-6 max-md:rounded-[20px] max-md:p-4;
+  }
+
+  /* A card that lifts with a hard shadow on hover, like the landing cards. */
+  .card-lift {
+    @apply transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_var(--border)];
   }
 
   .field {
-    @apply rounded-md border border-border bg-card px-2 py-1.5 text-sm;
+    @apply h-11 rounded-[13px] border border-border bg-paper px-3 text-base max-md:h-10 max-md:text-sm;
+  }
+
+  /* Card titles inside app pages. */
+  .card-title {
+    @apply font-sans text-2xl font-semibold text-foreground max-md:text-xl;
+  }
+
+  /* ---- Landing page ---- */
+
+  .l-btn {
+    @apply inline-flex h-12 items-center justify-center gap-2 rounded-[13px] border border-ink px-4 font-mono text-lg font-semibold uppercase text-ink transition-colors duration-300 max-lg:h-11 max-lg:text-sm;
+  }
+
+  .l-btn-lime {
+    @apply bg-lime hover:bg-lime-strong;
+  }
+
+  .l-btn-plain {
+    @apply bg-vanilla hover:bg-[#e5ded5];
+  }
+
+  .l-h2 {
+    @apply font-sans text-[56px] font-semibold leading-[1.1] text-foreground max-[1400px]:text-[48px] max-[1200px]:text-[40px] max-md:text-[34px];
+  }
+
+  .l-lead {
+    @apply font-sans text-[22px] font-light leading-[1.5] text-foreground max-[1400px]:text-[19px] max-[1200px]:text-[17px];
+  }
+}
+
+/* Small lime squares drifting up and down beside the grid lines. */
+@keyframes drift {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50% { transform: translate(-50%, calc(-50% + 18px)); }
+}
+
+.drift {
+  animation: drift 8s ease-in-out infinite;
+}
+
+/* Reveal: hidden until scrolled into view (only once scripts run, so the page
+   still shows everything without them). */
+[data-reveal] {
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s ease-out;
+}
+
+html.js [data-reveal]:not([data-shown]) {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+}
+
+/* Slow bobbing for floating decorations. */
+@keyframes float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -14px, 0) rotate(3deg); }
+}
+
+.float {
+  animation: float 7s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.marquee {
+  animation: marquee 28s linear infinite;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

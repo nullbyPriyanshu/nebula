@@ -1,128 +1,111 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useNebula } from "@/context/NebulaContext";
-import { chooseMode, dismissNotice } from "@/lib/nebula-store";
+import { chooseMode, hasWorkInProgress } from "@/lib/nebula-store";
+import { Container, GrainSection } from "./landing/parts";
+import { useReveal } from "./landing/motion";
+import { Modes } from "./landing/sections";
+import { DialogHost } from "./DialogHost";
+import { SiteHeader } from "./site/SiteHeader";
+import { SiteFooter } from "./site/SiteFooter";
+import { Toasts } from "./Toasts";
 
-const NAV = [
-  { href: "/", label: "My files" },
-  { href: "/accounts/", label: "Accounts" },
-  { href: "/analytics/", label: "Analytics" },
-  { href: "/trash/", label: "Trash" },
-  { href: "/settings/", label: "Settings" },
-];
+// Public pages (the landing page and what it links to) are readable before a
+// mode is chosen and always use the light palette they were designed in.
+const PUBLIC = ["", "/security", "/faq", "/privacy"];
 
-const same = (a: string, b: string) =>
-  a.replace(/\/$/, "") === b.replace(/\/$/, "");
+const isPublic = (pathname: string) => PUBLIC.includes(pathname.replace(/\/$/, ""));
 
-function ModeGate() {
+const subscribeOnline = (update: () => void) => {
+  window.addEventListener("online", update);
+  window.addEventListener("offline", update);
+
+  return () => {
+    window.removeEventListener("online", update);
+    window.removeEventListener("offline", update);
+  };
+};
+
+function OfflineBanner() {
+  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
+
+  if (online) return null;
+
   return (
-    <div className="card mx-auto mt-10 max-w-md space-y-4">
-      <h1 className="text-lg font-semibold">Whose computer is this?</h1>
-      <p className="text-sm text-muted">
-        On your own device Nebula remembers your file list between visits. On a
-        shared or lab computer it saves nothing and logs you out after 5 idle
-        minutes.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <button className="btn btn-primary" onClick={() => chooseMode("private")}>
-          My own device
-        </button>
-        <button className="btn" onClick={() => chooseMode("public")}>
-          Public or shared PC
-        </button>
-      </div>
-      <p className="text-xs text-muted">
-        Only Google&apos;s own popup ever asks for your password. Check the
-        address bar shows this site before you sign in.
-      </p>
+    <div role="status" className="bg-ink px-4 py-2 text-center font-sans text-sm text-white">
+      You are offline. The file list saved on this device is shown; uploads and
+      downloads continue when the connection is back.
     </div>
   );
 }
 
-function Notices() {
-  const { notices } = useNebula();
-
+function Loading() {
   return (
-    <div className="space-y-2" aria-live="polite">
-      {notices.map((notice) => (
-        <div
-          key={notice.id}
-          className={`card flex items-start justify-between gap-3 py-2 text-sm ${
-            notice.kind === "error" ? "border-danger text-danger" : ""
-          }`}
-        >
-          <span className="break-words">{notice.text}</span>
-          <button
-            className="shrink-0 text-muted"
-            aria-label="Dismiss"
-            onClick={() => dismissNotice(notice.id)}
-          >
-            ✕
-          </button>
+    <GrainSection label="Loading">
+      <Container className="py-14">
+        <div aria-busy="true" aria-label="Loading Nebula" className="space-y-6">
+          <div className="skeleton h-12 w-64" />
+          <div className="skeleton h-40" />
+          <div className="skeleton h-24" />
         </div>
-      ))}
-    </div>
+      </Container>
+    </GrainSection>
   );
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { mode } = useNebula();
+  const state = useNebula();
+  const { mode } = state;
   const pathname = usePathname();
 
-  // The privacy policy must be readable before any choice is made.
-  const open = same(pathname, "/privacy");
+  const started = mode === "private" || mode === "public";
+  const publicPage = isPublic(pathname);
+  const working = hasWorkInProgress(state);
+
+  // Sections rise into view as they are scrolled to, on every page.
+  useReveal(`${pathname}|${mode}`);
+
+  // Closing the tab would stop uploads, downloads and bulk jobs halfway.
+  useEffect(() => {
+    if (!working) return;
+
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+
+    window.addEventListener("beforeunload", warn);
+
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [working]);
+
+  let content: ReactNode = children;
+
+  if (!publicPage && mode === "loading") {
+    content = <Loading />;
+  } else if (!publicPage && mode === "ask") {
+    // An app page opened before choosing: choose here, then the page appears.
+    content = <Modes onChoose={(next) => void chooseMode(next)} />;
+  }
 
   return (
-    <>
+    <div className={`flex min-h-full flex-1 flex-col ${publicPage ? "theme-light bg-background" : ""}`}>
+      <OfflineBanner />
       {mode === "public" && (
-        <div className="bg-accent px-4 py-1.5 text-center text-sm text-accent-foreground">
+        <div className="bg-accent px-4 py-2 text-center font-sans text-sm text-accent-foreground">
           Public PC mode: nothing is saved on this computer. Signing in also
           signed you in to google.com here, so use an incognito window or sign
           out of Google when you leave.
         </div>
       )}
 
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-          <Link href="/" className="text-lg font-semibold">
-            Nebula
-          </Link>
-          <nav className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={
-                  same(pathname, item.href)
-                    ? "font-semibold text-accent"
-                    : "text-muted hover:text-foreground"
-                }
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
+      <SiteHeader started={started} inApp={started && !publicPage} />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 space-y-4 px-4 py-6">
-        <Notices />
-        {open || mode === "private" || mode === "public" ? (
-          children
-        ) : mode === "ask" ? (
-          <ModeGate />
-        ) : null}
-      </main>
+      <main className="flex-1">{content}</main>
 
-      <footer className="border-t border-border px-4 py-4 text-center text-xs text-muted">
-        Files go straight from this browser to your own Google accounts.{" "}
-        <Link href="/privacy/" className="underline">
-          Privacy policy
-        </Link>
-      </footer>
-    </>
+      <SiteFooter started={started} />
+
+      <Toasts />
+      <DialogHost />
+    </div>
   );
 }

@@ -10,9 +10,12 @@ export function spaceByAccount(files: FileRecord[]): Bar[] {
     totals.set(account, (totals.get(account) ?? 0) + bytes);
 
   for (const file of files) {
-    if (file.location) add(file.location.account, file.size);
+    // Encrypted files take a little more than their plain size.
+    const stored = file.cipher?.size ?? file.size;
+
+    if (file.location) add(file.location.account, stored);
     for (const part of file.parts ?? []) add(part.account, part.bytes);
-    for (const copy of file.copies ?? []) add(copy.account, file.size);
+    for (const copy of file.copies ?? []) add(copy.account, stored);
   }
 
   return [...totals]
@@ -61,6 +64,33 @@ export function uploadsPerWeek(
       value: files.filter(
         (file) => weekStart(new Date(file.uploadedAt).getTime()) === start,
       ).length,
+    };
+  });
+}
+
+// The biggest files, largest first.
+export const largestFiles = (files: FileRecord[], count = 10): Bar[] =>
+  [...files]
+    .sort((a, b) => b.size - a.size)
+    .slice(0, count)
+    .map((file) => ({ label: file.name, value: file.size }));
+
+// Total size of today's files that had been uploaded by the end of each of
+// the last `months` months, oldest first.
+export function growthByMonth(files: FileRecord[], now: number, months = 12): Bar[] {
+  const today = new Date(now);
+
+  return Array.from({ length: months }, (_, i) => {
+    const end = new Date(today.getFullYear(), today.getMonth() - (months - 1 - i) + 1, 1);
+
+    return {
+      label: new Date(end.getTime() - 1).toLocaleDateString(undefined, {
+        month: "short",
+        year: "2-digit",
+      }),
+      value: files
+        .filter((file) => new Date(file.uploadedAt).getTime() < end.getTime())
+        .reduce((sum, file) => sum + file.size, 0),
     };
   });
 }

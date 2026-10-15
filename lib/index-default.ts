@@ -16,6 +16,10 @@ export function createDefaultIndex(): IndexFile {
       routing: "priority",
       theme: "system",
       safeMode: false,
+      encrypt: false,
     },
+
+    foldersAt: {},
+    deleted: {},
   };
 }

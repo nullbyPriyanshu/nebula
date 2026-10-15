@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 560" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Ground -->
+  <path d="M40 520 C60 450 150 430 230 445 C300 410 420 420 500 460 C540 480 545 520 520 540 L60 545 C45 540 38 530 40 520Z" fill="#97d4ff"/>
+  <path d="M70 528 C120 505 190 505 240 520" stroke="#383838" stroke-width="3"/>
+
+  <!-- Storage card behind -->
+  <g transform="rotate(-4 400 150)">
+    <rect x="300" y="70" width="220" height="170" rx="16" fill="#f6f2ee" stroke="#383838" stroke-width="4"/>
+    <rect x="300" y="70" width="220" height="34" rx="16" fill="#ceebff" stroke="#383838" stroke-width="4"/>
+    <circle cx="322" cy="87" r="5" fill="#fd7876" stroke="#383838" stroke-width="2.5"/>
+    <circle cx="340" cy="87" r="5" fill="#e9ff91" stroke="#383838" stroke-width="2.5"/>
+    <circle cx="358" cy="87" r="5" fill="#97d4ff" stroke="#383838" stroke-width="2.5"/>
+    <g stroke="#383838" stroke-width="3">
+      <rect x="322" y="122" width="120" height="16" rx="5" fill="#fd7876"/>
+      <rect x="452" y="122" width="44" height="16" rx="5" fill="#f6f2ee"/>
+      <rect x="322" y="150" width="88" height="16" rx="5" fill="#b095fa"/>
+      <rect x="420" y="150" width="76" height="16" rx="5" fill="#f6f2ee"/>
+      <rect x="322" y="178" width="150" height="16" rx="5" fill="#058bff"/>
+      <rect x="482" y="178" width="14" height="16" rx="4" fill="#f6f2ee"/>
+      <rect x="322" y="206" width="60" height="16" rx="5" fill="#e9ff91"/>
+      <rect x="392" y="206" width="104" height="16" rx="5" fill="#f6f2ee"/>
+    </g>
+    <!-- hatch highlights on bars -->
+    <g stroke="#ffffff" stroke-width="3" opacity=".75">
+      <path d="M350 125 L344 135 M365 125 L359 135"/>
+      <path d="M345 153 L339 163"/>
+      <path d="M360 181 L354 191 M375 181 L369 191"/>
+    </g>
+  </g>
+
+  <!-- Grass behind -->
+  <g fill="#058bff" stroke="#383838" stroke-width="3">
+    <path d="M70 470 C72 430 62 405 50 392 C80 405 92 435 92 470Z"/>
+    <path d="M95 470 C100 420 112 395 128 380 C120 420 118 445 118 470Z"/>
+    <path d="M440 470 C445 430 460 400 480 385 C470 425 466 450 466 470Z"/>
+    <path d="M470 470 C470 440 488 425 505 420 C496 440 492 455 492 470Z"/>
+  </g>
+
+  <!-- Tentacles: outline pass then fill pass -->
+  <g stroke="#383838" stroke-width="36">
+    <path d="M205 345 C160 380 120 400 112 445 C106 478 140 488 152 466 C160 450 142 440 134 452"/>
+    <path d="M230 360 C215 410 210 450 238 486"/>
+    <path d="M262 365 C265 420 268 455 254 494"/>
+    <path d="M296 360 C318 410 345 445 330 486"/>
+    <path d="M325 345 C365 380 400 395 420 440 C432 470 404 488 390 466 C382 452 398 444 406 454"/>
+    <path d="M318 318 C368 300 398 262 405 214"/>
+    <path d="M200 318 C150 302 118 268 118 222"/>
+  </g>
+  <g stroke="#058bff" stroke-width="28">
+    <path d="M205 345 C160 380 120 400 112 445 C106 478 140 488 152 466 C160 450 142 440 134 452"/>
+    <path d="M230 360 C215 410 210 450 238 486"/>
+    <path d="M262 365 C265 420 268 455 254 494"/>
+    <path d="M296 360 C318 410 345 445 330 486"/>
+    <path d="M325 345 C365 380 400 395 420 440 C432 470 404 488 390 466 C382 452 398 444 406 454"/>
+    <path d="M318 318 C368 300 398 262 405 214"/>
+    <path d="M200 318 C150 302 118 268 118 222"/>
+  </g>
+  <!-- Suckers -->
+  <g fill="#ceebff" stroke="#383838" stroke-width="2.5">
+    <circle cx="232" cy="430" r="6"/><circle cx="236" cy="460" r="5"/>
+    <circle cx="272" cy="440" r="6"/><circle cx="268" cy="470" r="5"/>
+    <circle cx="318" cy="430" r="6"/><circle cx="326" cy="458" r="5"/>
+    <circle cx="128" cy="420" r="6"/><circle cx="410" cy="420" r="6"/>
+  </g>
+
+  <!-- Head -->
+  <path d="M168 330 C138 262 146 130 262 112 C380 128 392 262 356 330 C330 368 196 368 168 330Z" fill="#058bff" stroke="#383838" stroke-width="5"/>
+  <!-- Spots and shine -->
+  <g fill="#3aa3ff">
+    <circle cx="330" cy="190" r="14"/><circle cx="352" cy="228" r="9"/><circle cx="318" cy="155" r="7"/>
+  </g>
+  <path d="M200 170 C210 145 230 132 250 128" stroke="#ffffff" stroke-width="9" opacity=".85"/>
+  <path d="M190 200 C192 192 194 186 197 181" stroke="#ffffff" stroke-width="9" opacity=".85"/>
+
+  <!-- Eyes: lime whites with heavy lids -->
+  <g stroke="#383838" stroke-width="4.5">
+    <ellipse cx="226" cy="252" rx="30" ry="33" fill="#f4ffc9"/>
+    <ellipse cx="300" cy="252" rx="30" ry="33" fill="#f4ffc9"/>
+  </g>
+  <g fill="#383838">
+    <ellipse cx="234" cy="262" rx="8" ry="13"/>
+    <ellipse cx="308" cy="262" rx="8" ry="13"/>
+  </g>
+  <circle cx="237" cy="256" r="3" fill="#ffffff"/>
+  <circle cx="311" cy="256" r="3" fill="#ffffff"/>
+  <g fill="#058bff" stroke="#383838" stroke-width="4.5">
+    <path d="M194 248 C196 222 210 214 226 214 C244 214 258 224 258 246 C238 238 214 238 194 248Z"/>
+    <path d="M268 246 C270 222 284 214 300 214 C318 214 332 224 332 248 C312 238 288 238 268 246Z"/>
+  </g>
+  <!-- Smile and cheeks -->
+  <path d="M248 302 C258 312 272 312 282 300" stroke="#383838" stroke-width="4.5"/>
+  <ellipse cx="200" cy="298" rx="13" ry="8" fill="#fd7876" opacity=".7"/>
+  <ellipse cx="330" cy="298" rx="13" ry="8" fill="#fd7876" opacity=".7"/>
+
+  <!-- Folder held on the left -->
+  <g transform="rotate(-14 110 180)">
+    <path d="M58 150 L92 150 L104 164 L162 164 C168 164 172 168 172 174 L172 222 C172 228 168 232 162 232 L68 232 C62 232 58 228 58 222Z" fill="#b095fa" stroke="#383838" stroke-width="4.5"/>
+    <path d="M58 182 L172 182" stroke="#383838" stroke-width="4"/>
+    <path d="M78 200 L120 200" stroke="#f6f2ee" stroke-width="5"/>
+  </g>
+  <!-- Little cloud held on the right -->
+  <path d="M378 212 C370 196 384 180 400 186 C404 168 430 164 438 182 C456 178 468 196 458 210 C468 222 456 236 442 232 L392 232 C376 234 368 220 378 212Z" fill="#ceebff" stroke="#383838" stroke-width="4.5"/>
+  <path d="M408 214 L420 202 L432 214 M420 202 L420 224" stroke="#383838" stroke-width="4"/>
+
+  <!-- Pixel squares -->
+  <g fill="#f4ffc9" stroke="#383838" stroke-width="3">
+    <rect x="478" y="300" width="24" height="24"/><rect x="510" y="270" width="30" height="30"/>
+    <rect x="470" y="352" width="34" height="34"/><rect x="520" y="340" width="18" height="18"/>
+    <rect x="452" y="410" width="22" height="22"/><rect x="528" y="400" width="14" height="14"/>
+  </g>
+  <!-- Sparkle -->
+  <path d="M90 90 L96 108 L114 114 L96 120 L90 138 L84 120 L66 114 L84 108Z" fill="#e9ff91" stroke="#383838" stroke-width="3.5"/>
+  <!-- Grass in front -->
+  <g fill="#058bff" stroke="#383838" stroke-width="3">
+    <path d="M150 548 C152 515 140 495 126 484 C158 494 170 518 172 548Z"/>
+    <path d="M172 548 C178 506 192 486 210 474 C200 506 196 528 196 548Z"/>
+    <path d="M330 548 C334 516 350 498 368 490 C358 516 354 532 354 548Z"/>
+    <path d="M354 548 C352 522 340 506 326 498 C352 504 366 524 374 548Z"/>
+  </g>
+</svg>

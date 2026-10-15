@@ -124,10 +124,40 @@ describe("analytics", () => {
     ]);
   });
 
+  it("lists the largest files and the growth per month", async () => {
+    const { growthByMonth, largestFiles } = await import("../lib/analytics");
+
+    expect(largestFiles(files, 1)).toEqual([{ label: "a.png", value: 10 }]);
+
+    const growth = growthByMonth(files, new Date("2026-10-13T12:00:00").getTime(), 2);
+
+    expect(growth.map((month) => month.value)).toEqual([0, 16]);
+  });
+
   it("counts uploads in Monday-based weeks", () => {
     const now = new Date("2026-10-13T12:00:00").getTime();
     const weeks = uploadsPerWeek(files, now, 3);
 
     expect(weeks.map((week) => week.value)).toEqual([1, 0, 1]);
+  });
+});
+
+describe("search", async () => {
+  const { matches } = await import("../lib/search");
+  const record = (name: string, folder = "/") => ({
+    id: name,
+    name,
+    folder,
+    size: 1,
+    type: "",
+    uploadedAt: "",
+    sha256: "",
+  });
+
+  it("matches every word, in any order, in the name or folder, ignoring accents and case", () => {
+    expect(matches(record("Résumé 2026.pdf", "/Jobs"), "resume jobs")).toBe(true);
+    expect(matches(record("Résumé 2026.pdf", "/Jobs"), "2026 RESUME")).toBe(true);
+    expect(matches(record("Résumé 2026.pdf", "/Jobs"), "resume 2025")).toBe(false);
+    expect(matches(record("notes.txt"), "  ")).toBe(true);
   });
 });

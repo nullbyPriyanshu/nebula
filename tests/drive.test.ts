@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { QuotaExceededError } from "../lib/errors";
-import { uploadFile } from "../lib/google/drive";
+import { downloadFile, uploadFile } from "../lib/google/drive";
 
 vi.mock("../lib/google/auth", () => ({
   tokenFor: () => "token",
@@ -133,5 +133,47 @@ describe("uploadFile", () => {
       uploadFile("a@gmail.com", "x.bin", new Blob(["x"])),
     ).rejects.toBeInstanceOf(QuotaExceededError);
     expect(calls.filter((c) => c.method === "PUT")).toHaveLength(1);
+  });
+});
+
+describe("resume and download", () => {
+  it("resumes a stopped upload of the same file in the same session", async () => {
+    const blob = new Blob([new Uint8Array(12 * MB)]);
+    const controller = new AbortController();
+
+    const first = fakeGoogle((call, n) => {
+      if (n === 1) {
+        controller.abort();
+
+        return more(8 * MB - 1);
+      }
+
+      return done();
+    });
+
+    await expect(
+      uploadFile("a@gmail.com", "big.bin", blob, undefined, controller.signal),
+    ).rejects.toThrow();
+    expect(first.filter((c) => c.url.includes("uploadType=resumable"))).toHaveLength(1);
+
+    const second = fakeGoogle((call, n) => (n === 1 ? more(8 * MB - 1) : done()));
+
+    expect(await uploadFile("a@gmail.com", "big.bin", blob)).toBe("file-1");
+    // No new session: it asks how far the old one got, then sends the rest.
+    expect(second.filter((c) => c.url.includes("uploadType=resumable"))).toHaveLength(0);
+    expect(second.filter((c) => c.method === "PUT").map((c) => c.range)).toEqual([
+      `bytes */${12 * MB}`,
+      `bytes ${8 * MB}-${12 * MB - 1}/${12 * MB}`,
+    ]);
+  });
+
+  it("reports download progress as bytes arrive", async () => {
+    vi.stubGlobal("fetch", async () => new Response(new Blob(["hello world"])));
+
+    const seen: number[] = [];
+    const blob = await downloadFile("a@gmail.com", "id", (n) => seen.push(n));
+
+    expect(await blob.text()).toBe("hello world");
+    expect(seen.at(-1)).toBe(11);
   });
 });

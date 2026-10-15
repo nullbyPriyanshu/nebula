@@ -168,19 +168,28 @@ function confirmedOffset(response: Response, fallback: number): number {
 
 class SessionLostError extends Error {}
 
+// Unfinished upload sessions by the Blob they carry, so a paused, cancelled or
+// failed upload of the same file resumes where it stopped instead of restarting.
+const openSessions = new WeakMap<Blob, { email: string; url: string }>();
+
 async function runSession(
   email: string,
   session: string,
   blob: Blob,
   onProgress?: (sent: number) => void,
+  signal?: AbortSignal,
+  resuming = false,
 ): Promise<string> {
   const total = blob.size;
 
   let offset = 0;
   let failures = 0;
-  let resync = false;
+  // A resumed session first asks Google how far it got.
+  let resync = resuming;
 
   for (;;) {
+    signal?.throwIfAborted();
+
     let response: Response;
 
     try {
@@ -189,6 +198,7 @@ async function runSession(
         response = await fetch(session, {
           method: "PUT",
           headers: { "Content-Range": `bytes */${total}` },
+          signal,
         });
       } else {
         const end = Math.min(offset + CHUNK, total);
@@ -200,6 +210,7 @@ async function runSession(
               total === 0 ? "bytes */0" : `bytes ${offset}-${end - 1}/${total}`,
           },
           body: blob.slice(offset, end),
+          signal,
         });
       }
     } catch (error) {
@@ -256,13 +267,26 @@ export async function uploadFile(
   name: string,
   blob: Blob,
   onProgress?: (sent: number) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   for (let restarts = 0; ; restarts++) {
-    const session = await startSession(email, name, blob.type);
+    const open = openSessions.get(blob);
+    const resuming = open?.email === email;
+    const session = resuming ? open.url : await startSession(email, name, blob.type);
+
+    openSessions.set(blob, { email, url: session });
 
     try {
-      return await runSession(email, session, blob, onProgress);
+      const id = await runSession(email, session, blob, onProgress, signal, resuming);
+
+      openSessions.delete(blob);
+
+      return id;
     } catch (error) {
+      if (error instanceof SessionLostError) {
+        openSessions.delete(blob);
+      }
+
       // An expired session cannot be resumed; start the file again once.
       if (!(error instanceof SessionLostError) || restarts >= 1) {
         throw error instanceof SessionLostError
@@ -275,10 +299,90 @@ export async function uploadFile(
 
 // ---------------------------------------------------------------- files
 
-export async function downloadFile(email: string, fileId: string): Promise<Blob> {
-  const response = await gfetch(email, `${fileUrl(fileId)}?alt=media`);
+// onProgress receives the number of bytes received so far.
+export async function downloadFile(
+  email: string,
+  fileId: string,
+  onProgress?: (received: number) => void,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const response = await gfetch(email, `${fileUrl(fileId)}?alt=media`, { signal });
 
-  return response.blob();
+  if (!onProgress || !response.body) {
+    return response.blob();
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+
+  let received = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+
+    if (done) break;
+
+    chunks.push(value);
+    received += value.byteLength;
+    onProgress(received);
+  }
+
+  return new Blob(chunks, { type: response.headers.get("Content-Type") ?? "" });
+}
+
+// The file's bytes as a stream, for writing straight to disk.
+export async function openFile(
+  email: string,
+  fileId: string,
+  signal?: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> {
+  const response = await gfetch(email, `${fileUrl(fileId)}?alt=media`, { signal });
+
+  return response.body ?? (await response.blob()).stream();
+}
+
+export async function renameFile(email: string, fileId: string, name: string): Promise<void> {
+  await gfetch(email, fileUrl(fileId), {
+    method: "PATCH",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ name }),
+  });
+}
+
+// A short-lived link to Google's own thumbnail, when Drive made one.
+export async function thumbnailLink(email: string, fileId: string): Promise<string | null> {
+  const response = await gfetch(email, `${fileUrl(fileId)}?fields=thumbnailLink`);
+
+  return (await response.json()).thumbnailLink ?? null;
+}
+
+// Anyone with the link can view. drive.file allows this for Nebula's own files.
+export async function shareFile(email: string, fileId: string): Promise<string> {
+  const response = await gfetch(email, `${fileUrl(fileId)}/permissions?fields=id`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ role: "reader", type: "anyone" }),
+  });
+
+  return (await response.json()).id;
+}
+
+export async function unshareFile(
+  email: string,
+  fileId: string,
+  permissionId: string,
+): Promise<void> {
+  try {
+    await gfetch(
+      email,
+      `${fileUrl(fileId)}/permissions/${encodeURIComponent(permissionId)}`,
+      { method: "DELETE" },
+    );
+  } catch (error) {
+    if (!isMissing(error)) {
+      throw error;
+    }
+  }
 }
 
 // Moves a file into or out of the account's Drive trash.

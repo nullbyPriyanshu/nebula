@@ -10,6 +10,8 @@ import {
 import * as store from "@/lib/nebula-store";
 
 const IDLE_LIMIT = 5 * 60 * 1000;
+// How often the index is pulled from the accounts while the tab is visible.
+const SYNC_EVERY = 60 * 1000;
 const ACTIVITY = ["mousemove", "keydown", "touchstart"] as const;
 
 const NebulaContext = createContext<store.NebulaState>(store.getServerState());
@@ -22,6 +24,32 @@ export function NebulaProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => store.init(), []);
+
+  // Pick up changes made in another tab or on another device.
+  useEffect(() => {
+    const sync = () => {
+      if (document.visibilityState === "visible") void store.syncNow();
+    };
+    const timer = window.setInterval(sync, SYNC_EVERY);
+
+    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("focus", sync);
+    window.addEventListener("online", sync);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("online", sync);
+    };
+  }, []);
+
+  // The app shell works offline once installed; only in production builds.
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
 
   // "system" leaves both classes off and lets the media query decide.
   const theme = state.index.settings.theme;

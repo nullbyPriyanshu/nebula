@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { AppPage } from "@/components/site/AppPage";
 
 export const metadata: Metadata = { title: "Privacy policy · Nebula" };
 
 export default function PrivacyPage() {
   return (
-    <article className="card space-y-4 text-sm leading-6">
-      <h1 className="text-xl font-semibold">Privacy policy</h1>
+    <AppPage tag="Privacy" title="Privacy policy" lead="What Nebula does with your files and data: as little as possible.">
+    <article data-reveal className="card max-w-[860px] space-y-4 font-sans text-base font-light leading-7 [&_h2]:pt-2 [&_h2]:text-xl [&_h2]:font-semibold">
 
       <p>
         Nebula runs entirely in your browser. Your files travel directly between
@@ -28,16 +29,35 @@ export default function PrivacyPage() {
       <h2 className="font-semibold">What stays on this device</h2>
       <p>
         Login tokens are held in memory only and disappear when the tab closes.
-        On your own device, a copy of the file list is cached in this
-        browser&apos;s storage so it loads instantly. In Public PC mode nothing
-        is saved on the computer.
+        On your own device, this browser&apos;s storage keeps a copy of the file
+        list (so it loads instantly and offline), small image thumbnails, your
+        recent searches and which files you opened recently. The app itself is
+        cached so it opens offline. In Public PC mode none of this is saved on
+        the computer.
+      </p>
+
+      <h2 className="font-semibold">Encryption</h2>
+      <p>
+        If you turn on encryption, files are encrypted in this browser before
+        they are uploaded, so Google only stores unreadable data under a neutral
+        name. Your passphrase never leaves this browser and is kept in memory
+        only. Nebula cannot recover it. File names, folders and sizes are still
+        listed in Nebula&apos;s own file list in your accounts.
+      </p>
+
+      <h2 className="font-semibold">Sharing</h2>
+      <p>
+        A share link lets anyone who has it view the file in Google Drive.
+        Google has no expiry for such links, so Nebula removes an expiring link
+        the next time you use Nebula after its date.
       </p>
 
       <h2 className="font-semibold">No tracking</h2>
       <p>
         Nebula has no ads, no analytics service and no third-party scripts other
         than Google&apos;s sign-in. The Analytics page is computed in your
-        browser from your own file list.
+        browser from your own file list. For files not opened on this device,
+        thumbnails are loaded from Google&apos;s image servers.
       </p>
 
       <h2 className="font-semibold">Removing access</h2>
@@ -50,5 +70,6 @@ export default function PrivacyPage() {
         . Files already uploaded stay in the Nebula folder of your Google Drive.
       </p>
     </article>
+    </AppPage>
   );
 }
