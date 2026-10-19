@@ -172,6 +172,77 @@ class SessionLostError extends Error {}
 // failed upload of the same file resumes where it stopped instead of restarting.
 const openSessions = new WeakMap<Blob, { email: string; url: string }>();
 
+// Sessions also survive a reload, in localStorage, keyed by the file's name,
+// size and date: picking the same file again resumes it. Drive keeps an
+// unfinished session for about a week. Off in Public PC mode.
+const STORED_KEY = "nebula-upload-sessions";
+const KEEP_MS = 6 * 24 * 60 * 60 * 1000;
+
+let remember = false;
+
+export function rememberSessions(on: boolean) {
+  remember = on;
+
+  if (!on) {
+    try {
+      localStorage.removeItem(STORED_KEY);
+    } catch {}
+  }
+}
+
+type Stored = Record<string, { email: string; url: string; at: number }>;
+
+const fingerprint = (blob: Blob) =>
+  blob instanceof File ? `${blob.name}|${blob.size}|${blob.lastModified}` : null;
+
+function readStored(): Stored {
+  try {
+    const all = JSON.parse(localStorage.getItem(STORED_KEY) ?? "{}") as Stored;
+    const now = Date.now();
+
+    return Object.fromEntries(Object.entries(all).filter(([, s]) => now - s.at < KEEP_MS));
+  } catch {
+    return {};
+  }
+}
+
+function writeStored(update: (all: Stored) => void) {
+  if (!remember) return;
+
+  try {
+    const all = readStored();
+
+    update(all);
+    localStorage.setItem(STORED_KEY, JSON.stringify(all));
+  } catch {}
+}
+
+function sessionFor(blob: Blob) {
+  const open = openSessions.get(blob);
+
+  if (open) return open;
+
+  const key = fingerprint(blob);
+
+  return key && remember ? readStored()[key] : undefined;
+}
+
+function keepSession(blob: Blob, open: { email: string; url: string }) {
+  openSessions.set(blob, open);
+
+  const key = fingerprint(blob);
+
+  if (key) writeStored((all) => void (all[key] = { ...open, at: Date.now() }));
+}
+
+function dropSession(blob: Blob) {
+  openSessions.delete(blob);
+
+  const key = fingerprint(blob);
+
+  if (key) writeStored((all) => void delete all[key]);
+}
+
 async function runSession(
   email: string,
   session: string,
@@ -270,21 +341,21 @@ export async function uploadFile(
   signal?: AbortSignal,
 ): Promise<string> {
   for (let restarts = 0; ; restarts++) {
-    const open = openSessions.get(blob);
+    const open = sessionFor(blob);
     const resuming = open?.email === email;
     const session = resuming ? open.url : await startSession(email, name, blob.type);
 
-    openSessions.set(blob, { email, url: session });
+    keepSession(blob, { email, url: session });
 
     try {
       const id = await runSession(email, session, blob, onProgress, signal, resuming);
 
-      openSessions.delete(blob);
+      dropSession(blob);
 
       return id;
     } catch (error) {
       if (error instanceof SessionLostError) {
-        openSessions.delete(blob);
+        dropSession(blob);
       }
 
       // An expired session cannot be resumed; start the file again once.

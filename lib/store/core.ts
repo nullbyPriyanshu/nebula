@@ -46,6 +46,16 @@ export type UploadItem = {
   fileId?: string;
   // A different file with the same name in the same folder.
   sameNameAs?: string;
+  // The file's own date, to recognise it if it is picked again after a reload.
+  lastModified?: number;
+};
+
+// A file an upload was working on when the page closed.
+export type Interrupted = {
+  name: string;
+  size: number;
+  lastModified: number;
+  folder: string;
 };
 
 export type NoticeAction =
@@ -96,6 +106,8 @@ export type NebulaState = {
   task?: Task;
   // The encryption key is in memory for this session.
   unlocked: boolean;
+  // Uploads a reload interrupted; picking the same files again resumes them.
+  interrupted: Interrupted[];
 };
 
 const initialState: NebulaState = {
@@ -108,6 +120,7 @@ const initialState: NebulaState = {
   progress: {},
   dialogs: [],
   unlocked: false,
+  interrupted: [],
 };
 
 export let state = initialState;

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { preload } from "react-dom";
 import { Container, GrainSection, PlainSection, Tag } from "@/components/landing/parts";
+import { InterruptedBanner } from "../InterruptedBanner";
 import { ReconnectBanner } from "../ReconnectBanner";
 import { TaskBar } from "./TaskBar";
 
@@ -64,6 +65,7 @@ export function AppPage({
       >
         <Container className="flex flex-col gap-5 py-6 max-md:gap-4 max-md:py-4 lg:min-h-0 lg:flex-1">
           <ReconnectBanner />
+          <InterruptedBanner />
           <TaskBar />
           <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">{children}</div>
         </Container>

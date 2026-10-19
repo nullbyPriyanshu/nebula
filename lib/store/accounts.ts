@@ -1,5 +1,6 @@
 // Modes, accounts, logins, settings and syncing the index between copies.
 import { clearUploadTemp } from "../crypto";
+import { rememberSessions } from "../google/drive";
 import { addAccount, reconnect, signOut, signOutAll } from "../google/auth";
 import { clearLocalIndex, loadLocalIndex } from "../index-db";
 import { createDefaultIndex } from "../index-default";
@@ -30,7 +31,7 @@ import {
 } from "./core";
 import { purgeOldTrash, revokeExpiredShares } from "./files";
 import { abortTransfers } from "./transfers";
-import { dropQueue, resumeLoginPauses } from "./uploads";
+import { dropQueue, loadInterrupted, resumeLoginPauses } from "./uploads";
 import { lock } from "./vault";
 
 export const MAX_ACCOUNTS = 5;
@@ -76,7 +77,13 @@ export async function chooseMode(mode: "private" | "public") {
     await clearThumbs();
     forgetOpened();
     forgetSearches();
-    set({ mode });
+    rememberSessions(false);
+
+    try {
+      localStorage.removeItem("nebula-interrupted-uploads");
+    } catch {}
+
+    set({ mode, interrupted: [] });
 
     return;
   }
@@ -87,6 +94,8 @@ export async function chooseMode(mode: "private" | "public") {
 
   const cached = normalizeIndex(await loadLocalIndex().catch(() => null));
 
+  rememberSessions(true);
+  loadInterrupted();
   set({ mode, index: reconcile(state.index, cached) });
   void persist();
 }
