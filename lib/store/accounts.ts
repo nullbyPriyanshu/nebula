@@ -19,6 +19,7 @@ import {
   nextStamp,
   notify,
   persist,
+  readIfChanged,
   report,
   sameContent,
   set,
@@ -179,12 +180,10 @@ function watchExpiry(email: string, expiresAt?: number) {
 }
 
 async function afterConnect(email: string, expiresAt?: number) {
-  const adapter = adapterFor(email);
-
   let index = state.index;
 
   try {
-    const remote = await adapter.readIndex();
+    const remote = await readIfChanged(email);
 
     if (remote) markWritten(email, remote.updatedAt);
 
@@ -389,7 +388,8 @@ export async function syncNow() {
     await Promise.all(
       connectedEmails().map(async (email) => {
         try {
-          const remote = await adapterFor(email).readIndex();
+          // Unchanged since this tab last saw it: nothing new to merge.
+          const remote = await readIfChanged(email);
 
           if (remote) remotes.set(email, remote);
         } catch {

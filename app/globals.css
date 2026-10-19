@@ -74,7 +74,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* A normal arrow cursor in Nebula's blue, with a white inner edge and a dark
+/* A normal arrow cursor in Nebula's blue: a white inner edge and a dark
    outline so it reads on any background. A deeper blue over anything
    clickable. Text fields keep the I-beam; touch screens have no cursor.
    In the base layer, so utilities such as cursor-not-allowed still win. */

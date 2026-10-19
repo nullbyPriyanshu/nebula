@@ -6,6 +6,12 @@ import type { NextConfig } from "next";
 export default function config(phase: string): NextConfig {
   return {
     distDir: phase === PHASE_PRODUCTION_BUILD ? ".next-build" : ".next",
+    experimental: {
+      // The dev server's on-disk cache kept restoring a stale stylesheet after
+      // restarts. Without it a restart recompiles from source: a few seconds
+      // slower, but always what is in the files.
+      turbopackFileSystemCacheForDev: false,
+    },
     turbopack: {
       rules: {
         "*.css": {
