@@ -100,33 +100,110 @@ function chunkIv(nonce: Uint8Array, i: number) {
   return iv;
 }
 
-// Encrypts chunk by chunk. The result is a Blob the browser may keep on disk.
+// Temporary files for encrypted uploads start with this, so leftovers from a
+// crash can be found and removed.
+const TEMP_PREFIX = "nebula-upload-";
+
+type Sink = {
+  write(bytes: Uint8Array<ArrayBuffer>): Promise<void>;
+  // The finished bytes, and how to delete them once uploaded.
+  finish(): Promise<{ blob: Blob; discard: () => Promise<void> }>;
+  abort(): Promise<void>;
+};
+
+// Encrypted bytes go to a temporary file in the browser's private storage
+// (OPFS) when it has one, so a large file never sits in memory whole.
+async function diskSink(): Promise<Sink | null> {
+  try {
+    if (typeof navigator === "undefined" || !navigator.storage?.getDirectory) return null;
+
+    const root = await navigator.storage.getDirectory();
+    const name = `${TEMP_PREFIX}${crypto.randomUUID()}`;
+    const handle = await root.getFileHandle(name, { create: true });
+    const writable = await handle.createWritable();
+    const remove = () => root.removeEntry(name).catch(() => {});
+
+    return {
+      write: (bytes) => writable.write(bytes),
+      finish: async () => {
+        await writable.close();
+
+        return { blob: await handle.getFile(), discard: remove };
+      },
+      abort: async () => {
+        await writable.abort().catch(() => {});
+        await remove();
+      },
+    };
+  } catch {
+    // No private storage (or no space): fall back to memory.
+    return null;
+  }
+}
+
+function memorySink(): Sink {
+  const parts: Uint8Array<ArrayBuffer>[] = [];
+
+  return {
+    write: async (bytes) => void parts.push(bytes),
+    finish: async () => ({
+      blob: new Blob(parts, { type: "application/octet-stream" }),
+      discard: async () => void parts.splice(0),
+    }),
+    abort: async () => void parts.splice(0),
+  };
+}
+
+// Deletes temporary upload files left behind by a closed tab or a crash.
+export async function clearUploadTemp() {
+  try {
+    if (typeof navigator === "undefined" || !navigator.storage?.getDirectory) return;
+
+    const root = await navigator.storage.getDirectory();
+
+    for await (const name of root.keys()) {
+      if (name.startsWith(TEMP_PREFIX)) await root.removeEntry(name).catch(() => {});
+    }
+  } catch {
+    // Nothing to clean, or no access.
+  }
+}
+
+// Encrypts chunk by chunk into a temporary file (or memory), so even a large
+// file is never held in memory whole. Call discard() once it is uploaded.
 export async function encryptBlob(
   key: CryptoKey,
   blob: Blob,
   signal?: AbortSignal,
   chunk = CHUNK,
-): Promise<{ blob: Blob; cipher: Cipher }> {
+): Promise<{ blob: Blob; cipher: Cipher; discard: () => Promise<void> }> {
   const nonce = random(8);
   const hasher = await createHasher();
-  const parts: Uint8Array<ArrayBuffer>[] = [];
+  const sink = (await diskSink()) ?? memorySink();
 
-  for (let i = 0; i < chunks(blob.size, chunk); i++) {
-    signal?.throwIfAborted();
+  try {
+    for (let i = 0; i < chunks(blob.size, chunk); i++) {
+      signal?.throwIfAborted();
 
-    const plain = await blob.slice(i * chunk, (i + 1) * chunk).arrayBuffer();
-    const sealed = new Uint8Array(
-      await crypto.subtle.encrypt({ name: "AES-GCM", iv: chunkIv(nonce, i) }, key, plain),
-    );
+      const plain = await blob.slice(i * chunk, (i + 1) * chunk).arrayBuffer();
+      const sealed = new Uint8Array(
+        await crypto.subtle.encrypt({ name: "AES-GCM", iv: chunkIv(nonce, i) }, key, plain),
+      );
 
-    hasher.update(sealed);
-    parts.push(sealed);
+      hasher.update(sealed);
+      await sink.write(sealed);
+    }
+  } catch (error) {
+    await sink.abort();
+
+    throw error;
   }
 
-  const encrypted = new Blob(parts, { type: "application/octet-stream" });
+  const { blob: encrypted, discard } = await sink.finish();
 
   return {
     blob: encrypted,
+    discard,
     cipher: { nonce: toBase64(nonce), chunk, size: encrypted.size, sha256: hasher.digest() },
   };
 }

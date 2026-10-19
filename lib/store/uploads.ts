@@ -35,7 +35,8 @@ const ACTIVE = ["waiting", "hashing", "uploading"];
 const pending = new Map<string, File>();
 
 // Encrypted bytes per item, kept so a paused upload resumes the same session.
-const payloads = new Map<string, { blob: Blob; cipher: Cipher }>();
+// Each may be a temporary file on disk, deleted with discard() when done.
+const payloads = new Map<string, { blob: Blob; cipher: Cipher; discard: () => Promise<void> }>();
 
 function patchItem(id: string, patch: Partial<UploadItem>) {
   set({
@@ -47,6 +48,7 @@ const itemById = (id: string) => state.queue.find((item) => item.id === id);
 
 function forget(id: string) {
   pending.delete(id);
+  void payloads.get(id)?.discard();
   payloads.delete(id);
 }
 
@@ -162,6 +164,7 @@ export function clearFinished() {
 export function dropQueue() {
   active.forEach((controller) => controller.abort("cancel"));
   pending.clear();
+  payloads.forEach((payload) => void payload.discard());
   payloads.clear();
 }
 

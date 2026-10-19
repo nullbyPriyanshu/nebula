@@ -1,4 +1,5 @@
 // Modes, accounts, logins, settings and syncing the index between copies.
+import { clearUploadTemp } from "../crypto";
 import { addAccount, reconnect, signOut, signOutAll } from "../google/auth";
 import { clearLocalIndex, loadLocalIndex } from "../index-db";
 import { createDefaultIndex } from "../index-default";
@@ -45,6 +46,9 @@ export function init() {
   if (state.mode !== "loading") {
     return;
   }
+
+  // Encrypted uploads from a closed tab may have left temporary files.
+  void clearUploadTemp();
 
   let saved: string | null = null;
 

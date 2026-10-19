@@ -125,6 +125,17 @@ test("encrypts files before they reach Google", async ({ page }) => {
   await page.getByRole("banner").getByRole("link", { name: "My files" }).click();
   await upload(page, "secret.txt", "the plans");
 
+  // The encrypted copy was staged in the browser's private storage; it is gone now.
+  const leftovers = await page.evaluate(async () => {
+    const names: string[] = [];
+
+    for await (const name of (await navigator.storage.getDirectory()).keys()) names.push(name);
+
+    return names.filter((name) => name.startsWith("nebula-upload-"));
+  });
+
+  expect(leftovers).toEqual([]);
+
   const [stored] = google.storedContent(EMAIL);
 
   expect(stored.toString()).not.toContain("the plans");
