@@ -27,9 +27,12 @@ test.afterEach(() => {
 
 async function start(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "My own device" }).click();
-  await expect(page).toHaveURL(/\/files\/$/);
-  await page.getByRole("button", { name: "Connect Google account" }).first().click();
+  // Under load Firefox can take the first click before the page is ready.
+  await expect(async () => {
+    if (!page.url().endsWith("/files/")) await page.getByRole("button", { name: "My own device" }).click({ timeout: 2000 });
+    await expect(page).toHaveURL(/\/files\/$/, { timeout: 2000 });
+  }).toPass();
+  await page.getByRole("button", { name: "Connect account" }).click();
   await expect(page.getByText(`${EMAIL} is connected.`)).toBeVisible();
 }
 
@@ -125,6 +128,19 @@ test("encrypts files before they reach Google", async ({ page }) => {
   await page.getByRole("banner").getByRole("link", { name: "My files" }).click();
   await upload(page, "secret.txt", "the plans");
 
+  // The encrypted copy was staged in the browser's private storage; it is
+  // deleted (in the background) once uploaded.
+  const leftovers = () =>
+    page.evaluate(async () => {
+      const names: string[] = [];
+
+      for await (const name of (await navigator.storage.getDirectory()).keys()) names.push(name);
+
+      return names.filter((name) => name.startsWith("nebula-upload-"));
+    });
+
+  await expect.poll(leftovers).toEqual([]);
+
   const [stored] = google.storedContent(EMAIL);
 
   expect(stored.toString()).not.toContain("the plans");
@@ -181,7 +197,56 @@ test("the logo leads back to the landing page, which leads back to the files", a
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: /One drive/ })).toBeVisible();
 
+  // Only one "Open my files" at a time: the hero's, until it scrolls away.
+  await expect(page.getByRole("link", { name: "Open my files" })).toHaveCount(1);
+  await expect(page.getByRole("banner").getByRole("link", { name: "Open my files" })).toHaveCount(0);
+
+  await page.getByRole("heading", { name: "Choose your mode" }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("banner").getByRole("link", { name: "Open my files" })).toBeInViewport();
+  await expect(page.locator("#hero-start")).not.toBeInViewport();
+
   await page.getByRole("banner").getByRole("link", { name: "Open my files" }).click();
   await expect(page).toHaveURL(/\/files\/$/);
   await expect(page.getByRole("heading", { name: "Your space" })).toBeVisible();
+});
+
+test("my files never scrolls: a long list is split into pages that fit", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await start(page);
+
+  await page.locator('input[type="file"]:not([webkitdirectory])').setInputFiles(
+    Array.from({ length: 30 }, (_, i) => ({
+      name: `file-${String(i + 1).padStart(2, "0")}.txt`,
+      mimeType: "text/plain",
+      buffer: Buffer.from(`content ${i}`),
+    })),
+  );
+  // The upload dock clears itself away once everything is done.
+  await expect(page.getByRole("region", { name: "Uploads" })).toHaveCount(0, { timeout: 40_000 });
+
+  // Nothing on the page can scroll: not the page, not a panel.
+  const scrolling = await page.evaluate(() =>
+    [document.documentElement, ...document.querySelectorAll("*")]
+      .filter((el) => {
+        const style = getComputedStyle(el);
+        const canScroll = el === document.documentElement || /auto|scroll/.test(style.overflowY);
+
+        return canScroll && el.scrollHeight > el.clientHeight + 1;
+      })
+      .map((el) => el.tagName + "." + String((el as HTMLElement).className).slice(0, 40)),
+  );
+
+  expect(scrolling).toEqual([]);
+
+  const pager = page.getByRole("navigation", { name: "Pages" });
+
+  await expect(pager).toBeVisible();
+
+  const firstPage = await files(page).getByRole("listitem").count();
+
+  expect(firstPage).toBeGreaterThan(2);
+  expect(firstPage).toBeLessThan(30);
+
+  await pager.getByRole("button", { name: "Next page" }).click();
+  await expect(pager).toContainText(`${firstPage + 1}–`);
 });

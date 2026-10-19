@@ -6,35 +6,32 @@ import { connectAccount } from "@/lib/nebula-store";
 import { Icon } from "./Icon";
 
 function Step({
+  n,
   done,
   title,
   children,
 }: {
+  n: number;
   done: boolean;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <li className="flex gap-3">
-      <span
-        className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] border border-border ${
-          done ? "bg-lime text-ink" : "bg-card"
-        }`}
-      >
-        {done && <Icon name="check" className="h-4 w-4" />}
-      </span>
-      <div className="space-y-1 font-sans text-base">
-        <p className={`text-lg font-semibold ${done ? "text-muted line-through" : ""}`}>
-          {title}
-          {done && <span className="sr-only"> (done)</span>}
-        </p>
-        {!done && <div className="font-light text-muted">{children}</div>}
+    <li className={`flex flex-col gap-2 rounded-[16px] border border-border p-4 ${done ? "bg-lime/50" : "bg-paper"}`}>
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-sm font-bold text-muted">0{n}</span>
+        <span className={`flex h-6 w-6 items-center justify-center rounded-[6px] border border-border ${done ? "bg-lime text-ink" : "bg-card"}`}>
+          {done && <Icon name="check" className="h-4 w-4" />}
+          <span className="sr-only">{done ? "Done" : "To do"}</span>
+        </span>
       </div>
+      <p className="font-sans text-base font-semibold leading-snug">{title}</p>
+      <div className="font-sans text-sm font-light text-muted">{children}</div>
     </li>
   );
 }
 
-// First-run checklist; disappears once an account is connected and a file stored.
+// First-run steps, shown in the empty file panel until the first file is stored.
 export function GetStarted({ onUpload }: { onUpload: () => void }) {
   const { index, runtime } = useNebula();
 
@@ -42,44 +39,36 @@ export function GetStarted({ onUpload }: { onUpload: () => void }) {
   const connected = index.accounts.some((a) => runtime[a.email]?.connected);
   const files = index.files.length;
 
-  if (accounts > 0 && files > 0) {
-    return null;
-  }
-
   return (
-    <section data-reveal className="card grid gap-8 md:grid-cols-[1fr_1.4fr] md:p-10" aria-labelledby="get-started">
-      <div className="space-y-3">
-        <h2 id="get-started" className="font-sans text-[32px] font-semibold leading-tight max-md:text-2xl">Get started</h2>
-        <p className="font-sans text-lg font-light text-muted">
-          Nebula pools the free space of several Google accounts into one place.
-          Four steps and you are done.
-        </p>
+    <section className="flex flex-col gap-4" aria-labelledby="get-started">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 id="get-started" className="font-sans text-2xl font-semibold">Get started</h2>
+          <p className="font-sans text-sm font-light text-muted">Four steps to your pooled space.</p>
+        </div>
       </div>
-      <ol className="space-y-5">
-        <Step done={accounts > 0} title="Connect a Google account">
-          <p>Google asks which account and for permission to store Nebula&apos;s files.</p>
-          <button className="btn btn-primary mt-3" onClick={connectAccount}>
-            Connect Google account
-          </button>
+      <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Step n={1} done={accounts > 0} title="Connect a Google account">
+          {accounts > 0 ? (
+            <p>Connected.</p>
+          ) : (
+            <button className="btn btn-primary mt-1 h-9" onClick={connectAccount}>Connect account</button>
+          )}
         </Step>
-        <Step done={accounts > 1} title="Add more accounts (optional)">
+        <Step n={2} done={accounts > 1} title="Add more accounts">
           <p>
-            Every extra account adds its free space to the pool.{" "}
+            Optional: each adds its free space.{" "}
             <Link href="/accounts/" className="font-semibold text-foreground underline underline-offset-4">Accounts</Link>
           </p>
         </Step>
-        <Step done={false} title="Choose how files are placed (optional)">
+        <Step n={3} done={false} title="Choose placement">
           <p>
-            Fill accounts in order or spread evenly, and turn on safe mode to keep a
-            second copy of everything.{" "}
+            Optional: fill in order or evenly; turn on safe copies.{" "}
             <Link href="/settings/" className="font-semibold text-foreground underline underline-offset-4">Settings</Link>
           </p>
         </Step>
-        <Step done={files > 0} title="Upload your first file">
-          <p>Drop files or folders anywhere on this page, or pick them.</p>
-          <button className="btn mt-3" disabled={!connected} onClick={onUpload}>
-            Upload files
-          </button>
+        <Step n={4} done={files > 0} title="Upload your first file">
+          <button className="btn mt-1 h-9" disabled={!connected} onClick={onUpload}>Upload files</button>
         </Step>
       </ol>
     </section>

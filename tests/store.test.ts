@@ -8,6 +8,9 @@ type Fake = DriveAdapter & {
   names: Map<string, string>;
   trashed: Set<string>;
   index: IndexFile | null;
+  // Bumped on every write, like Drive's file version.
+  version: number;
+  reads: number;
   total: number;
   used: number;
   failUpload?: Error;
@@ -32,6 +35,8 @@ function addFake(email: string, total: number, used = 0) {
     names: new Map(),
     trashed: new Set(),
     index: null,
+    version: 0,
+    reads: 0,
     total,
     used,
     getQuota: async () => ({ total: adapter.total, used: adapter.used }),
@@ -80,10 +85,18 @@ function addFake(email: string, total: number, used = 0) {
     thumbnail: async () => null,
     share: async (id) => `perm-${id}`,
     unshare: async () => {},
-    readIndex: async () => adapter.index,
+    readIndex: async () => {
+      adapter.reads++;
+
+      return adapter.index;
+    },
     writeIndex: async (index) => {
       adapter.index = index;
+      adapter.version++;
+
+      return String(adapter.version);
     },
+    indexVersion: async () => (adapter.index ? String(adapter.version) : null),
   };
 
   world.fakes.set(email, adapter);
@@ -710,13 +723,16 @@ describe("saving", () => {
   it("batches quick successive changes into one write", async () => {
     addFake("a@gmail.com", 1000);
     await connect("a@gmail.com");
+    // Let the saves from connecting finish before counting.
+    await store.persist();
 
     let writes = 0;
     const write = fake("a@gmail.com").writeIndex;
 
     fake("a@gmail.com").writeIndex = async (index) => {
       writes++;
-      await write(index);
+
+      return write(index);
     };
 
     store.createFolder("/", "A");
@@ -885,5 +901,34 @@ describe("rename, undo, stars and links", () => {
     await upload("secret.txt", "x");
 
     expect(await store.shareFile(fileNamed("secret.txt").id)).toBeNull();
+  });
+});
+
+describe("version checks", () => {
+  it("downloads an account's file list only when its version moved", async () => {
+    addFake("a@gmail.com", 1000);
+    await connect("a@gmail.com");
+    await store.persist();
+
+    const before = fake("a@gmail.com").reads;
+
+    // Changes made only here: the account's copy is the one this tab wrote.
+    store.createFolder("/", "A");
+    await store.persist();
+    store.createFolder("/", "B");
+    await store.persist();
+    await store.syncNow();
+
+    expect(fake("a@gmail.com").reads).toBe(before);
+
+    // Another device writes: the next sync downloads it.
+    const remote = fake("a@gmail.com");
+
+    remote.index = { ...remote.index!, folders: [...remote.index!.folders, "/From phone"], updatedAt: new Date(Date.now() + 1000).toISOString(), foldersAt: { ...remote.index!.foldersAt, "/From phone": new Date(Date.now() + 1000).toISOString() } };
+    remote.version++;
+    await store.syncNow();
+
+    expect(fake("a@gmail.com").reads).toBe(before + 1);
+    expect(store.getState().index.folders).toContain("/From phone");
   });
 });

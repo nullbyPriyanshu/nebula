@@ -1,7 +1,7 @@
 "use client";
 
 import { useNebula } from "@/context/NebulaContext";
-import type { Routing, Theme } from "@/lib/index-types";
+import type { Routing } from "@/lib/index-types";
 import {
   ask,
   askText,
@@ -15,9 +15,9 @@ import {
   logoutAll,
   setRouting,
   setSafeMode,
-  setTheme,
 } from "@/lib/nebula-store";
 import { AppPage } from "@/components/site/AppPage";
+import { Select } from "@/components/Select";
 import { IconBox } from "@/components/landing/parts";
 
 // Asks twice; null when cancelled or the two do not match.
@@ -57,10 +57,9 @@ function EncryptionSettings() {
     return (
       <>
         <p className="text-sm text-muted">
-          Encrypt files in this browser before they reach Google, so Google (or
-          anyone with access to the accounts) only holds unreadable bytes. File
-          names in Drive are hidden too. Encrypted files cannot be shared by link
-          or previewed in Google Drive.
+          Encrypt files in this browser before they reach Google, so Google only
+          holds unreadable bytes, names included. Encrypted files can&apos;t be
+          shared by link or previewed in Drive.
         </p>
         <button
           className="btn"
@@ -90,8 +89,7 @@ function EncryptionSettings() {
         <input type="checkbox" className="mt-1" checked={encrypt}
           onChange={(event) => void setEncrypt(event.target.checked)} />
         <span>
-          Encrypt new uploads. Files already uploaded stay as they are, and
-          encrypted files stay readable with the passphrase either way.
+          Encrypt new uploads. Files already uploaded stay as they are.
         </span>
       </label>
       <p className="text-sm text-muted">
@@ -137,33 +135,38 @@ function Setting({
   children: React.ReactNode;
 }) {
   return (
-    <section data-reveal aria-label={title} className="card card-lift space-y-4">
-      <div className="flex items-center gap-4">
-        <IconBox name={icon} />
-        <h2 className="card-title">{title}</h2>
+    <section aria-label={title} className="card space-y-3 lg:h-full lg:p-5">
+      <div className="flex items-center gap-3">
+        <IconBox name={icon} size="h-10 w-10" />
+        <h2 className="card-title lg:text-xl">{title}</h2>
       </div>
-      <div className="space-y-4 font-sans text-base font-light">{children}</div>
+      <div className="space-y-3 font-sans text-base font-light">{children}</div>
     </section>
   );
 }
 
 export default function SettingsPage() {
   const { index, mode } = useNebula();
-  const { routing, theme, safeMode } = index.settings;
+  const { routing, safeMode } = index.settings;
 
   return (
-    <AppPage tag="Settings" title="Settings" lead="How Nebula places, protects and shows your files.">
-      <div className="grid gap-6 lg:grid-cols-2">
+    <AppPage tag="Settings" title="Settings" lead="How Nebula places and protects your files." art="/art/laptop.svg">
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:content-start">
         <Setting icon="bars" title="Placement">
           <p className="text-muted">
-            Which account receives a new file. Both keep each account&apos;s free
-            buffer and split a file only when no single account fits it.
+            Which account gets a new file. A file is split only when no single
+            account fits it.
           </p>
-          <select className="field w-full" aria-label="Routing" value={routing}
-            onChange={(event) => setRouting(event.target.value as Routing)}>
-            <option value="priority">Priority: fill accounts in order</option>
-            <option value="least-used">Least-used: spread evenly</option>
-          </select>
+          <Select<Routing>
+            label="Placement"
+            className="w-full"
+            value={routing}
+            onChange={setRouting}
+            options={[
+              { value: "priority", label: "Priority: fill accounts in order" },
+              { value: "least-used", label: "Least-used: spread evenly" },
+            ]}
+          />
         </Setting>
 
         <Setting icon="shield" title="Safe mode">
@@ -171,8 +174,8 @@ export default function SettingsPage() {
             <input type="checkbox" className="mt-1 h-5 w-5 accent-accent" checked={safeMode}
               onChange={(event) => setSafeMode(event.target.checked)} />
             <span>
-              Store a second copy of every new file in another account. Uses twice
-              the space; needs at least two connected accounts with room.
+              Keep a second copy of every new file in another account. Uses twice
+              the space and needs two accounts with room.
             </span>
           </label>
         </Setting>
@@ -181,17 +184,7 @@ export default function SettingsPage() {
           <EncryptionSettings />
         </Setting>
 
-        <Setting icon="sparkle" title="Theme">
-          <p className="text-muted">The public pages stay light; the app follows this.</p>
-          <select className="field w-full" aria-label="Theme" value={theme}
-            onChange={(event) => setTheme(event.target.value as Theme)}>
-            <option value="system">Follow system</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </Setting>
-
-        <div className="lg:col-span-2">
+        <div className="md:col-span-2">
           <Setting icon="user" title="Public PC mode">
             <label className="flex items-start gap-3">
               <input
@@ -216,8 +209,7 @@ export default function SettingsPage() {
               />
               <span>
                 Save nothing on this computer and log out after 5 idle minutes or
-                when the tab closes. Turning this on erases the file list saved in
-                this browser; your files and the copies in your accounts stay.
+                when the tab closes. Your files and accounts are untouched.
               </span>
             </label>
             <button className="btn btn-danger" onClick={async () => {
@@ -234,6 +226,23 @@ export default function SettingsPage() {
             </button>
           </Setting>
         </div>
+
+        <Setting icon="sparkle" title="About this browser">
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG illustration */}
+            <img src="/art/cloud.svg" alt="" className="h-12 w-auto shrink-0" />
+            <p className="text-muted">
+              {mode === "public"
+                ? "Public PC mode: nothing is kept here after you leave."
+                : "Your file list is saved in this browser so it opens instantly, even offline."}
+            </p>
+          </div>
+          <p className="text-sm text-muted">
+            Shortcuts on My files: <kbd className="font-mono">/</kbd> search ·{" "}
+            <kbd className="font-mono">M</kbd> move · <kbd className="font-mono">Del</kbd> trash ·{" "}
+            <kbd className="font-mono">?</kbd> all shortcuts
+          </p>
+        </Setting>
       </div>
     </AppPage>
   );

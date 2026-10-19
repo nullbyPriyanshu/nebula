@@ -20,7 +20,9 @@ import {
   set,
   setRuntime,
   state,
+  subscribe,
   updateFile,
+  type Interrupted,
   type UploadItem,
 } from "./core";
 import { liveIn, trashFiles, uniqueName } from "./files";
@@ -35,7 +37,8 @@ const ACTIVE = ["waiting", "hashing", "uploading"];
 const pending = new Map<string, File>();
 
 // Encrypted bytes per item, kept so a paused upload resumes the same session.
-const payloads = new Map<string, { blob: Blob; cipher: Cipher }>();
+// Each may be a temporary file on disk, deleted with discard() when done.
+const payloads = new Map<string, { blob: Blob; cipher: Cipher; discard: () => Promise<void> }>();
 
 function patchItem(id: string, patch: Partial<UploadItem>) {
   set({
@@ -47,13 +50,67 @@ const itemById = (id: string) => state.queue.find((item) => item.id === id);
 
 function forget(id: string) {
   pending.delete(id);
+  void payloads.get(id)?.discard();
   payloads.delete(id);
 }
 
-// Each entry lands in its own folder; used for folder uploads.
+// ---------------------------------------------------------------- after a reload
+
+const UNFINISHED_KEY = "nebula-interrupted-uploads";
+const UNFINISHED = ["waiting", "hashing", "uploading", "paused", "failed"];
+
+const sameFile = (a: Interrupted, file: File) =>
+  a.name === file.name && a.size === file.size && a.lastModified === file.lastModified;
+
+// Remembers what is still uploading, so a reload can offer to continue it.
+// Written only when that list changes, and never in Public PC mode.
+let lastSaved = "";
+
+subscribe(() => {
+  if (state.mode !== "private") return;
+
+  const unfinished: Interrupted[] = [
+    ...state.interrupted,
+    ...state.queue
+      .filter((item) => UNFINISHED.includes(item.status) && item.lastModified !== undefined)
+      .map((item) => ({ name: item.name, size: item.size, lastModified: item.lastModified!, folder: item.folder })),
+  ];
+  const json = JSON.stringify(unfinished);
+
+  if (json === lastSaved) return;
+
+  lastSaved = json;
+
+  try {
+    if (unfinished.length > 0) localStorage.setItem(UNFINISHED_KEY, json);
+    else localStorage.removeItem(UNFINISHED_KEY);
+  } catch {}
+});
+
+// On start-up (private mode): uploads the last visit did not finish.
+export function loadInterrupted() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(UNFINISHED_KEY) ?? "[]") as Interrupted[];
+
+    if (Array.isArray(saved) && saved.length > 0) set({ interrupted: saved });
+  } catch {}
+}
+
+export function dismissInterrupted() {
+  set({ interrupted: [] });
+}
+
+// Each entry lands in its own folder; used for folder uploads. A file that an
+// earlier visit was uploading goes back to its original folder, and its
+// upload continues where it stopped.
 export function enqueueEntries(entries: { file: File; folder: string }[]) {
+  let interrupted = state.interrupted;
+
   const items = entries.map(({ file, folder }): UploadItem => {
     const id = crypto.randomUUID();
+    const earlier = interrupted.find((entry) => sameFile(entry, file));
+
+    if (earlier) interrupted = interrupted.filter((entry) => entry !== earlier);
 
     pending.set(id, file);
 
@@ -61,13 +118,14 @@ export function enqueueEntries(entries: { file: File; folder: string }[]) {
       id,
       name: file.name,
       size: file.size,
-      folder: normalizePath(folder),
+      lastModified: file.lastModified,
+      folder: normalizePath(earlier?.folder ?? folder),
       status: "waiting",
       progress: 0,
     };
   });
 
-  set({ queue: [...state.queue, ...items] });
+  set({ queue: [...state.queue, ...items], interrupted });
   runQueue();
 }
 
@@ -162,6 +220,7 @@ export function clearFinished() {
 export function dropQueue() {
   active.forEach((controller) => controller.abort("cancel"));
   pending.clear();
+  payloads.forEach((payload) => void payload.discard());
   payloads.clear();
 }
 

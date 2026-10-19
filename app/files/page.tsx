@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { FileItem, useDropTarget } from "@/components/FileItem";
 import { GetStarted } from "@/components/GetStarted";
 import { Icon } from "@/components/Icon";
 import { Menu } from "@/components/Menu";
 import { MoveDialog } from "@/components/MoveDialog";
+import { Pager } from "@/components/Pager";
+import { Select } from "@/components/Select";
 import { Preview } from "@/components/Preview";
 import { SpaceRing } from "@/components/SpaceRing";
-import { UploadQueue } from "@/components/UploadQueue";
 import { useNebula } from "@/context/NebulaContext";
 import { entriesFromDrop, entriesFromPicker } from "@/lib/drop";
 import { childFolders, crumbs, folderName, normalizePath, ROOT } from "@/lib/folders";
@@ -57,8 +58,11 @@ const lastTouched = (file: FileRecord) => {
   return opened && opened > file.uploadedAt ? opened : file.uploadedAt;
 };
 
-// Rows rendered at a time; more appear as the list is scrolled.
-const PAGE = 200;
+// Fixed sizes of a list row and a grid tile, so pages can be fitted exactly.
+const ROW = 56;
+const TILE = 176;
+const TILE_MIN = 180;
+const GAP = 8;
 
 const SORTS: Record<Sort, (a: FileRecord, b: FileRecord) => number> = {
   name: (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }),
@@ -72,7 +76,8 @@ const SHORTCUTS = [
   "Delete  Move the selected files to the trash",
   "M  Move the selected files",
   "Esc  Clear the selection",
-  "← →  Previous / next file in the preview",
+  "← →  Previous / next page",
+  "← →  In the preview: previous / next file",
   "?  This list",
 ].join("\n");
 
@@ -84,10 +89,12 @@ function FolderItem({
   folder,
   count,
   onOpen,
+  grid,
 }: {
   folder: string;
   count: number;
   onOpen: () => void;
+  grid: boolean;
 }) {
   const [drop, over] = useDropTarget(folder, moveFiles);
   const name = folderName(folder);
@@ -95,16 +102,21 @@ function FolderItem({
   return (
     <li
       {...drop}
-      className={`flex items-center gap-4 rounded-[18px] border border-border bg-card p-3 font-sans text-base transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_0_var(--border)] md:px-4 ${over ? "bg-lime ring-2 ring-border" : ""}`}
+      className={`flex overflow-hidden rounded-[16px] border border-border font-sans text-base ${
+        grid ? "h-[176px] flex-col justify-between p-4" : "h-14 items-center gap-3 px-3 md:gap-4"
+      } ${over ? "bg-lime" : "bg-paper"}`}
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-border bg-lavender text-ink"><Icon name="folder" className="h-5 w-5" /></span>
-      <button className="flex min-w-0 flex-1 flex-col text-left" onClick={onOpen}>
+      <span className={`flex shrink-0 items-center justify-center rounded-[10px] border border-border bg-lavender text-ink ${grid ? "h-16 w-16" : "h-10 w-10"}`}>
+        <Icon name="folder" className={grid ? "h-8 w-8" : "h-5 w-5"} />
+      </span>
+      <button className="flex min-w-0 flex-1 flex-col justify-end text-left" onClick={onOpen}>
         <span className="truncate font-semibold">{name}</span>
         <span className="text-sm font-light text-muted">
           {over ? "Drop to move here" : count === 0 ? "Empty folder" : `${count} file${count === 1 ? "" : "s"}`}
         </span>
       </button>
       <Menu
+        compact
         label={`Actions for folder ${name}`}
         items={[
           { label: "Open", icon: "folder", onSelect: onOpen },
@@ -275,28 +287,52 @@ function Files() {
   const selected = selection.filter((id) => onScreen.has(id));
   const selectedSet = new Set(selected);
 
-  // Long lists render a page at a time; a new list starts again at one page.
+  // One page at a time, as many rows (or tiles) as fit the panel, so neither
+  // the page nor the list scrolls. A new list starts again at its first page.
   const listKey = `${here}|${query}|${kind}|${account}|${show}|${sort}`;
-  const [paging, setPaging] = useState({ key: listKey, count: PAGE });
-  const shown = paging.key === listKey ? paging.count : PAGE;
-  const more = useRef<HTMLDivElement>(null);
+  const listBox = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ cols: 1, rows: 10 });
   const [history, setHistory] = useState<string[]>([]);
 
   useEffect(() => {
-    const element = more.current;
+    const element = listBox.current;
 
     if (!element) return;
 
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        setPaging({ key: listKey, count: shown + PAGE });
-      }
-    }, { rootMargin: "600px" });
+    const measure = () => {
+      const wide = window.matchMedia("(min-width: 1024px)").matches;
+      // The box minus its 12px padding on each side.
+      const width = element.clientWidth - 24;
+      const height = element.clientHeight - 24;
+      const cols = grid ? Math.max(2, Math.floor((width + GAP) / (TILE_MIN + GAP))) : 1;
+      const rows = wide
+        ? Math.max(1, Math.floor((height + GAP) / ((grid ? TILE : ROW) + GAP)))
+        : grid ? 4 : 12;
+
+      setFit((now) => (now.cols === cols && now.rows === rows ? now : { cols, rows }));
+    };
+
+    measure();
+
+    const observer = new ResizeObserver(measure);
 
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, [listKey, shown, files.length]);
+  }, [grid]);
+
+  const perPage = fit.cols * fit.rows;
+  const itemCount = subfolders.length + files.length;
+  const pages = Math.max(1, Math.ceil(itemCount / perPage));
+  const [paging, setPaging] = useState({ key: listKey, page: 0 });
+  const page = Math.min(paging.key === listKey ? paging.page : 0, pages - 1);
+  const goTo = (next: number) => setPaging({ key: listKey, page: Math.max(0, Math.min(pages - 1, next)) });
+
+  // Folders come first, then files, split across the pages in that order.
+  const from = page * perPage;
+  const pageFolders = subfolders.slice(from, from + perPage);
+  const pageFiles = files.slice(Math.max(0, from - subfolders.length), from + perPage - subfolders.length);
+  const columns = { gridTemplateColumns: `repeat(${fit.cols}, minmax(0, 1fr))` };
   const allSelected = files.length > 0 && selected.length === files.length;
 
   const toggle = (id: string, shift: boolean) => {
@@ -348,6 +384,8 @@ function Files() {
         setSelection([]);
       } else if (event.key.toLowerCase() === "m" && !mod && selected.length > 0) {
         setMoving(selected);
+      } else if ((event.key === "ArrowRight" || event.key === "ArrowLeft") && !mod) {
+        goTo(page + (event.key === "ArrowRight" ? 1 : -1));
       } else if (event.key === "?") {
         void ask({ title: "Keyboard shortcuts", body: SHORTCUTS, confirm: "Got it", cancel: "Close" });
       }
@@ -366,7 +404,7 @@ function Files() {
 
   return (
     <div
-      className="relative"
+      className="relative flex flex-col lg:min-h-0 lg:flex-1"
       onDragEnter={(event) => {
         if (dropFiles(event)) setDragging((n) => n + 1);
       }}
@@ -420,6 +458,7 @@ function Files() {
         tag="My files"
         title="Your space"
         lead="Every file across your accounts, in one place. Drop files or whole folders anywhere on this page."
+        art="/art/peek.svg"
         actions={
           <>
             <button className="l-btn l-btn-lime" disabled={!canUpload} onClick={() => picker.current?.click()}>
@@ -435,46 +474,53 @@ function Files() {
         }
       >
 
-      <GetStarted onUpload={() => picker.current?.click()} />
-
-      <section data-reveal aria-label="Overview" className="grid gap-6 lg:grid-cols-[1.1fr_2fr]">
-        <div className="card card-lift flex flex-col justify-center gap-3">
-          {connected.length > 0 ? (
-            <>
-              <SpaceRing used={used} total={total} />
-              {trashed.length > 0 && (
-                <p className="font-sans text-sm text-muted">
-                  {formatBytes(trashBytes)} of that is in the trash.{" "}
-                  <Link href="/trash/" className="font-semibold text-foreground underline underline-offset-4">Empty it</Link> to free the space.
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="font-sans text-lg text-muted">
-              {index.accounts.length > 0
-                ? "Reconnect an account above to upload or download."
-                : "Connect a Google account to start."}
-            </p>
-          )}
-        </div>
-        <StatRow>
-          <Stat value={live.length} label="files" note="across every folder" />
+      <div className="grid gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[300px_1fr] lg:grid-rows-[minmax(0,1fr)]">
+      <aside aria-label="Overview" className="flex flex-col gap-5 lg:min-h-0 lg:overflow-hidden">
+        {index.accounts.length > 0 && (
+          <div className="card">
+            {connected.length > 0 ? (
+              <div className="space-y-3">
+                <SpaceRing used={used} total={total} compact />
+                {trashed.length > 0 && (
+                  <p className="font-sans text-sm text-muted">
+                    {formatBytes(trashBytes)} of that is in the trash.{" "}
+                    <Link href="/trash/" className="font-semibold text-foreground underline underline-offset-4">Empty it</Link> to free the space.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="font-sans text-base text-muted">Reconnect an account above to upload or download.</p>
+            )}
+          </div>
+        )}
+        <StatRow compact>
+          <Stat value={live.length} label="files" />
           <Stat value={folders.length} label="folders" />
-          <Stat value={`${connected.length}/${index.accounts.length}`} label="accounts" note="connected now" />
+          <Stat value={`${connected.length}/${index.accounts.length}`} label="connected" />
           <Stat value={index.files.filter((f) => f.starred && !f.trashedAt).length} label="starred" />
         </StatRow>
-      </section>
+        <div className="card hidden space-y-2 bg-paper lg:block [@media(max-height:960px)]:lg:hidden">
+          <h2 className="font-sans text-base font-semibold">Shortcuts</h2>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 font-sans text-sm font-light text-muted">
+            {[["/", "Search"], ["← →", "Previous / next page"], ["M", "Move selected"], ["Del", "Trash selected"], ["?", "All shortcuts"]].map(([key, what]) => (
+              <Fragment key={key}>
+                <dt><kbd className="rounded border border-border bg-card px-1.5 font-mono text-xs text-foreground">{key}</kbd></dt>
+                <dd>{what}</dd>
+              </Fragment>
+            ))}
+          </dl>
+        </div>
+      </aside>
 
-      <UploadQueue />
-
-      <section data-reveal aria-label="Files and folders" className="rounded-[34px] border border-border bg-card max-md:rounded-[24px]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4 max-md:px-3">
-          <nav className="flex gap-1 overflow-x-auto" aria-label="Views">
+      <section aria-label="Files and folders" className="flex flex-col overflow-hidden rounded-[24px] border border-border bg-card lg:min-h-0">
+        {/* Row 1: views, search and filters. */}
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2.5">
+          <nav className="flex gap-0.5 overflow-x-auto" aria-label="Views">
             {SHOWS.map((option) => (
               <button
                 key={option.value}
                 aria-current={show === option.value ? "page" : undefined}
-                className={`shrink-0 rounded-full px-5 py-2.5 font-sans text-base font-medium transition-colors max-md:px-3 max-md:py-2 max-md:text-sm ${
+                className={`h-10 shrink-0 rounded-full px-3.5 font-sans text-sm font-medium transition-colors ${
                   show === option.value ? "bg-ink text-white" : "text-muted hover:text-foreground"
                 }`}
                 onClick={() => setParams({ show: option.value, path: option.value ? "" : here }, true)}
@@ -483,134 +529,149 @@ function Files() {
               </button>
             ))}
           </nav>
+          <section className="flex min-w-[200px] flex-1" aria-label="Search">
+            <input
+              ref={search}
+              type="search"
+              placeholder="Search all files  ( / )"
+              aria-label="Search all files"
+              className="field h-10 w-full"
+              value={query}
+              list="search-history"
+              onFocus={() => setHistory(searchHistory())}
+              onChange={(event) => changeQuery(event.target.value)}
+              onBlur={() => remember(query)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") remember(query);
+                if (event.key === "Escape") changeQuery("");
+              }}
+            />
+            <datalist id="search-history">
+              {history.map((q) => (
+                <option key={q} value={q} />
+              ))}
+            </datalist>
+          </section>
           <div className="flex gap-2">
-            <button className="btn btn-icon" aria-label={grid ? "Show as list" : "Show as grid"}
+            <button className="btn btn-icon h-10 w-10" aria-label={grid ? "Show as list" : "Show as grid"}
               aria-pressed={grid} onClick={() => setParams({ view: grid ? "" : "grid" })}>
               <Icon name={grid ? "list" : "grid"} />
             </button>
-            <button className="btn btn-icon" aria-label="Keyboard shortcuts"
+            <button className="btn btn-icon h-10 w-10" aria-label="Keyboard shortcuts"
               onClick={() => void ask({ title: "Keyboard shortcuts", body: SHORTCUTS, confirm: "Got it", cancel: "Close" })}>
               <Icon name="keyboard" />
             </button>
           </div>
         </div>
 
-        <div className="space-y-5 p-6 max-md:p-3">
-      <section className="flex flex-wrap gap-2" aria-label="Search and filters">
-        <input
-          ref={search}
-          type="search"
-          placeholder="Search all files  ( / )"
-          aria-label="Search all files"
-          className="field min-w-0 flex-1 basis-full sm:basis-0"
-          value={query}
-          list="search-history"
-          onFocus={() => setHistory(searchHistory())}
-          onChange={(event) => changeQuery(event.target.value)}
-          onBlur={() => remember(query)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") remember(query);
-            if (event.key === "Escape") changeQuery("");
-          }}
-        />
-        <datalist id="search-history">
-          {history.map((q) => (
-            <option key={q} value={q} />
-          ))}
-        </datalist>
-        <select className="field min-w-0 flex-1 sm:flex-none" aria-label="File type" value={kind}
-          onChange={(event) => setParams({ type: event.target.value })}>
-          <option value="">All types</option>
-          {FILE_KINDS.map((k) => (
-            <option key={k} value={k}>{k}</option>
-          ))}
-        </select>
-        <select className="field min-w-0 flex-1 sm:max-w-52 sm:flex-none" aria-label="Account" value={account}
-          onChange={(event) => setParams({ account: event.target.value })}>
-          <option value="">All accounts</option>
-          {index.accounts.map((a) => (
-            <option key={a.email} value={a.email}>{a.email}</option>
-          ))}
-        </select>
-        <select className="field min-w-0 flex-1 sm:flex-none" aria-label="Sort by" value={sort}
-          onChange={(event) => setParams({ sort: event.target.value === "name" ? "" : event.target.value })}>
-          <option value="name">Name</option>
-          <option value="size">Largest</option>
-          <option value="date">Newest</option>
-        </select>
-      </section>
-
-      {searching ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 font-sans text-base">
-          <p aria-live="polite">
-            {files.length} {show && !query && !kind && !account
-              ? `${SHOWS.find((s) => s.value === show)!.label.toLowerCase()} file${files.length === 1 ? "" : "s"}`
-              : `match${files.length === 1 ? "" : "es"}`}{" "}
-            in every folder
-          </p>
-          <button className="text-accent hover:underline"
-            onClick={() => {
-              setQuery("");
-              setParams({ q: "", type: "", account: "", show: "" });
-            }}>
-            {show && !query && !kind && !account ? "Back to folders" : "Clear search"}
-          </button>
-        </div>
-      ) : (
-        <nav className="flex flex-wrap items-center gap-1 font-sans text-lg" aria-label="Folder path">
-          {crumbs(here).map((crumb, i) => (
-            <span key={crumb} className="flex items-center gap-1">
-              {i > 0 && <span className="text-muted" aria-hidden>/</span>}
-              <Crumb crumb={crumb} here={here} onOpen={() => openFolder(crumb)} />
-            </span>
-          ))}
-        </nav>
-      )}
-
-      {files.length > 0 && (
-        <div className={`flex flex-wrap items-center gap-2 font-sans text-base ${
-          selected.length > 0 ? "sticky top-24 z-20 rounded-[18px] border border-border bg-lime p-2 shadow-[4px_4px_0_0_var(--border)]" : ""
+        {/* Row 2: where you are, and what is selected. */}
+        <div className={`flex min-h-[52px] shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-2 font-sans text-base transition-colors ${
+          selected.length > 0 ? "bg-lime" : ""
         }`}>
-          <label className="flex items-center gap-2 px-1">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-accent"
-              checked={allSelected}
-              ref={(element) => {
-                if (element) element.indeterminate = selected.length > 0 && !allSelected;
-              }}
-              onChange={() => setSelection(allSelected ? [] : files.map((file) => file.id))}
-            />
-            {selected.length > 0 ? `${selected.length} selected` : "Select all"}
-          </label>
-          {selected.length > 0 && (
+          {files.length > 0 && (
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-accent"
+                aria-label="Select all"
+                checked={allSelected}
+                ref={(element) => {
+                  if (element) element.indeterminate = selected.length > 0 && !allSelected;
+                }}
+                onChange={() => setSelection(allSelected ? [] : files.map((file) => file.id))}
+              />
+              {selected.length > 0 && <span className="font-semibold">{selected.length} selected</span>}
+            </label>
+          )}
+          {selected.length > 0 ? (
             <div className="ml-auto flex flex-wrap gap-2">
-              <button className="btn" onClick={() => void downloadFiles(selected)}>
+              <button className="btn h-9" onClick={() => void downloadFiles(selected)}>
                 <Icon name="download" /> Download
               </button>
-              <button className="btn" onClick={() => setMoving(selected)}>
+              <button className="btn h-9" onClick={() => setMoving(selected)}>
                 <Icon name="move" /> Move
               </button>
-              <button className="btn btn-danger" onClick={() => {
+              <button className="btn btn-danger h-9" onClick={() => {
                 void trashFiles(selected);
                 setSelection([]);
               }}>
                 <Icon name="trash" /> Trash
               </button>
-              <button className="btn btn-icon" aria-label="Clear selection" onClick={() => setSelection([])}>
+              <button className="btn btn-icon h-9 w-9" aria-label="Clear selection" onClick={() => setSelection([])}>
                 <Icon name="close" />
               </button>
             </div>
+          ) : searching ? (
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+              <p aria-live="polite">
+                {files.length} {show && !query && !kind && !account
+                  ? `${SHOWS.find((s) => s.value === show)!.label.toLowerCase()} file${files.length === 1 ? "" : "s"}`
+                  : `match${files.length === 1 ? "" : "es"}`}{" "}
+                in every folder
+              </p>
+              <button className="font-semibold underline underline-offset-4"
+                onClick={() => {
+                  setQuery("");
+                  setParams({ q: "", type: "", account: "", show: "" });
+                }}>
+                {show && !query && !kind && !account ? "Back to folders" : "Clear search"}
+              </button>
+            </div>
+          ) : (
+            <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1" aria-label="Folder path">
+              {crumbs(here).map((crumb, i) => (
+                <span key={crumb} className="flex items-center gap-1">
+                  {i > 0 && <span className="text-muted" aria-hidden>/</span>}
+                  <Crumb crumb={crumb} here={here} onOpen={() => openFolder(crumb)} />
+                </span>
+              ))}
+            </nav>
+          )}
+          {selected.length === 0 && (
+            <section className="ml-auto flex flex-wrap gap-2" aria-label="Filters">
+            <Select
+              label="File type"
+              className="h-9 w-[124px]"
+              value={kind}
+              onChange={(value) => setParams({ type: value })}
+              options={[
+                { value: "", label: "All types" },
+                ...FILE_KINDS.map((k) => ({ value: k, label: k[0].toUpperCase() + k.slice(1) })),
+              ]}
+            />
+            <Select
+              label="Account"
+              className="h-9 w-[150px]"
+              value={account}
+              onChange={(value) => setParams({ account: value })}
+              options={[
+                { value: "", label: "All accounts" },
+                ...index.accounts.map((a) => ({ value: a.email, label: a.email })),
+              ]}
+            />
+            <Select<Sort>
+              label="Sort by"
+              className="h-9 w-[116px]"
+              value={sort}
+              onChange={(value) => setParams({ sort: value === "name" ? "" : value })}
+              options={[
+                { value: "name", label: "Name" },
+                { value: "size", label: "Largest" },
+                { value: "date", label: "Newest" },
+              ]}
+            />
+            </section>
           )}
         </div>
-      )}
 
-      {subfolders.length > 0 && (
-        <ul className={grid ? "grid grid-cols-2 gap-2 sm:grid-cols-3" : "space-y-2"} aria-label="Folders">
-          {subfolders.map((folder) => (
+        <div ref={listBox} className="flex flex-col gap-2 p-3 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+      {pageFolders.length > 0 && (
+        <ul className="grid gap-2" style={columns} aria-label="Folders">
+          {pageFolders.map((folder) => (
             <FolderItem
               key={folder}
               folder={folder}
+              grid={grid}
               count={counts.get(folder) ?? 0}
               onOpen={() => openFolder(folder)}
             />
@@ -618,9 +679,9 @@ function Files() {
         </ul>
       )}
 
-      {files.length > 0 && (
-        <ul className={grid ? "grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4" : "space-y-2"} aria-label="Files">
-          {files.slice(0, shown).map((file) => (
+      {pageFiles.length > 0 && (
+        <ul className="grid gap-2" style={columns} aria-label="Files">
+          {pageFiles.map((file) => (
             <FileItem
               key={file.id}
               file={file}
@@ -637,18 +698,10 @@ function Files() {
         </ul>
       )}
 
-      {files.length > shown && (
-        <div ref={more} className="py-4 text-center text-sm text-muted">
-          Showing {shown} of {files.length}…{" "}
-          <button className="text-accent hover:underline"
-            onClick={() => setPaging({ key: listKey, count: shown + PAGE })}>
-            Show more
-          </button>
-        </div>
-      )}
-
-      {files.length === 0 && subfolders.length === 0 && (
-        <div className="py-14 text-center font-sans text-lg font-light text-muted">
+      {files.length === 0 && subfolders.length === 0 && !searching && here === ROOT && index.files.length === 0 ? (
+        <GetStarted onUpload={() => picker.current?.click()} />
+      ) : files.length === 0 && subfolders.length === 0 && (
+        <div className="m-auto py-4 text-center font-sans text-base font-light text-muted">
           {searching ? (
             <p>
               {show === "starred"
@@ -661,8 +714,10 @@ function Files() {
             </p>
           ) : (
             <>
-              <Icon name="upload" className="mx-auto mb-3 h-10 w-10" />
-              <p>Nothing here yet. Drop files or folders on this page, or use Upload.</p>
+              {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG illustration */}
+              <img src="/art/hero.svg" alt="" className="mx-auto mb-2 h-32 w-auto" />
+              <p className="font-semibold text-foreground">{here === ROOT ? "Nothing here yet" : "This folder is empty"}</p>
+              <p>Drop files or folders anywhere on this page, or use Upload files.</p>
               {here !== ROOT && filesInside(here).length === 0 && (
                 <button className="mt-3 text-accent hover:underline"
                   onClick={async () => {
@@ -678,7 +733,11 @@ function Files() {
         </div>
       )}
         </div>
+        {pages > 1 && (
+          <Pager page={page} pages={pages} from={from + 1} to={Math.min(itemCount, from + perPage)} total={itemCount} onGo={goTo} />
+        )}
       </section>
+      </div>
       </AppPage>
 
       {moving && (

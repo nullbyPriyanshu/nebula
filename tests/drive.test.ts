@@ -177,3 +177,54 @@ describe("resume and download", () => {
     expect(seen.at(-1)).toBe(11);
   });
 });
+
+describe("resume after a reload", () => {
+  it("picks up the same file's session from storage instead of starting over", async () => {
+    const storage = new Map<string, string>();
+
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => void storage.set(key, value),
+      removeItem: (key: string) => void storage.delete(key),
+    });
+
+    const pick = () => new File([new Uint8Array(12 * MB)], "lecture.mp4", { lastModified: 1_700_000_000_000 });
+
+    // First visit: the upload stops after its first 8 MB chunk.
+    const before = await import("../lib/google/drive");
+    const controller = new AbortController();
+
+    before.rememberSessions(true);
+    fakeGoogle((call, n) => {
+      if (n === 1) {
+        controller.abort();
+
+        return more(8 * MB - 1);
+      }
+
+      return done();
+    });
+    await expect(before.uploadFile("a@gmail.com", "lecture.mp4", pick(), undefined, controller.signal)).rejects.toThrow();
+
+    // A reload: a fresh module, and a new File object for the same file.
+    vi.resetModules();
+
+    const after = await import("../lib/google/drive");
+
+    after.rememberSessions(true);
+
+    const calls = fakeGoogle((call, n) => (n === 1 ? more(8 * MB - 1) : done()));
+
+    expect(await after.uploadFile("a@gmail.com", "lecture.mp4", pick())).toBe("file-1");
+    // No new session: it asked how far the old one got, then sent the rest.
+    expect(calls.filter((c) => c.url.includes("uploadType=resumable"))).toHaveLength(0);
+    expect(calls.filter((c) => c.method === "PUT").map((c) => c.range)).toEqual([
+      `bytes */${12 * MB}`,
+      `bytes ${8 * MB}-${12 * MB - 1}/${12 * MB}`,
+    ]);
+    // Finished: nothing left to resume.
+    expect(JSON.parse(storage.get("nebula-upload-sessions") ?? "{}")).toEqual({});
+
+    vi.unstubAllGlobals();
+  });
+});

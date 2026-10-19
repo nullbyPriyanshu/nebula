@@ -46,6 +46,16 @@ export type UploadItem = {
   fileId?: string;
   // A different file with the same name in the same folder.
   sameNameAs?: string;
+  // The file's own date, to recognise it if it is picked again after a reload.
+  lastModified?: number;
+};
+
+// A file an upload was working on when the page closed.
+export type Interrupted = {
+  name: string;
+  size: number;
+  lastModified: number;
+  folder: string;
 };
 
 export type NoticeAction =
@@ -96,6 +106,8 @@ export type NebulaState = {
   task?: Task;
   // The encryption key is in memory for this session.
   unlocked: boolean;
+  // Uploads a reload interrupted; picking the same files again resumes them.
+  interrupted: Interrupted[];
 };
 
 const initialState: NebulaState = {
@@ -108,6 +120,7 @@ const initialState: NebulaState = {
   progress: {},
   dialogs: [],
   unlocked: false,
+  interrupted: [],
 };
 
 export let state = initialState;
@@ -276,6 +289,24 @@ export const markWritten = (email: string, updatedAt: string) => written.set(ema
 // The account's copy is stale: the next save writes to it even if nothing changed.
 export const markStale = (email: string) => written.delete(email);
 
+// The version of each account's stored index that this tab last read or wrote.
+const versions = new Map<string, string>();
+
+// An account's stored index, or null when it is unchanged since this tab last
+// read or wrote it: a small version check instead of downloading the whole list.
+export async function readIfChanged(email: string): Promise<IndexFile | null> {
+  const adapter = adapterFor(email);
+  const version = await adapter.indexVersion().catch(() => null);
+
+  if (version && version === versions.get(email)) return null;
+
+  const remote = await adapter.readIndex();
+
+  if (version) versions.set(email, version);
+
+  return remote;
+}
+
 // Everything but the version stamp.
 export const sameContent = (a: IndexFile, b: IndexFile) =>
   JSON.stringify({ ...a, updatedAt: "" }) === JSON.stringify({ ...b, updatedAt: "" });
@@ -284,7 +315,7 @@ export const sameContent = (a: IndexFile, b: IndexFile) =>
 // this one last saw it is merged in first, so its changes are not overwritten.
 async function mergeRemote(emails: string[]) {
   const remotes = await Promise.all(
-    emails.map((email) => adapterFor(email).readIndex().catch(() => null)),
+    emails.map((email) => readIfChanged(email).catch(() => null)),
   );
 
   let merged = state.index;
@@ -324,7 +355,11 @@ async function flush() {
           .map((email) =>
             adapterFor(email)
               .writeIndex(index)
-              .then(() => markWritten(email, index.updatedAt))
+              .then((version) => {
+                markWritten(email, index.updatedAt);
+
+                if (version) versions.set(email, version);
+              })
               .catch((error) => report(error, `Index not saved to ${email}: `)),
           ),
       );

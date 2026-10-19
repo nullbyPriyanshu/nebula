@@ -18,7 +18,7 @@ const MENU_HEIGHT = 360;
 // The "⋯" overflow menu: arrow keys move, Escape closes, focus returns to the button.
 // It is drawn in a portal at a fixed position, so rows that clip their contents
 // (content-visibility) or scroll cannot hide it.
-export function Menu({ label, items }: { label: string; items: MenuItem[] }) {
+export function Menu({ label, items, compact }: { label: string; items: MenuItem[]; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<CSSProperties>({});
   const button = useRef<HTMLButtonElement>(null);
@@ -90,7 +90,7 @@ export function Menu({ label, items }: { label: string; items: MenuItem[] }) {
     <div className="relative">
       <button
         ref={button}
-        className="btn btn-icon"
+        className={`btn btn-icon ${compact ? "h-9 w-9" : ""}`}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -106,7 +106,7 @@ export function Menu({ label, items }: { label: string; items: MenuItem[] }) {
           role="menu"
           aria-label={label}
           style={place}
-          className="fixed z-50 max-h-[calc(100vh-1rem)] min-w-44 overflow-y-auto rounded-md border border-border bg-card py-1 shadow-lg"
+          className="pop-in fixed z-50 max-h-[calc(100vh-1rem)] min-w-48 overflow-y-auto rounded-[16px] border border-ink bg-vanilla p-1.5 text-ink shadow-[4px_4px_0_0_#383838]"
           onKeyDown={(event) => {
             const buttons = enabled();
             const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
@@ -129,7 +129,7 @@ export function Menu({ label, items }: { label: string; items: MenuItem[] }) {
               <button
                 role="menuitem"
                 disabled={item.disabled}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-background focus:bg-background disabled:opacity-50 ${
+                className={`flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left font-sans text-sm outline-none transition-colors hover:bg-[#e5ded5] focus-visible:bg-[#e5ded5] disabled:opacity-50 ${
                   item.danger ? "text-danger" : ""
                 }`}
                 onClick={() => {

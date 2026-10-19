@@ -26,6 +26,12 @@ export function useReveal(key: string) {
       return () => mutations.disconnect();
     }
 
+    // Whatever is already on screen stays shown: only content below the fold
+    // waits to fade in, so turning the effect on can never blank the page.
+    for (const element of pending()) {
+      if (element.getBoundingClientRect().top < window.innerHeight) element.dataset.shown = "true";
+    }
+
     root.classList.add("js");
 
     const observer = new IntersectionObserver(

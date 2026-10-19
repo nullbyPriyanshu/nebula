@@ -1,41 +1,31 @@
 import Link from "next/link";
 import { Container, GrainSection, Logo } from "@/components/landing/parts";
 
-export function SiteFooter({ started }: { started: boolean }) {
+// One slim band: the mark, the links in a row, the copyright.
+export function SiteFooter() {
+  const links = [
+    { href: "/#features", label: "How it works" },
+    { href: "/security/", label: "Security" },
+    { href: "/faq/", label: "FAQ" },
+    { href: "/privacy/", label: "Privacy" },
+  ];
+
   return (
-    <GrainSection label="Footer" className="border-t border-ink/10">
-      <Container className="pb-24 pt-16">
-        <div className="relative grid gap-10 md:grid-cols-[1fr_auto_auto_1.4fr]">
-          <Link href="/" className="flex items-center gap-2 self-start font-sans text-[28px] text-ink">
-            <Logo className="h-8 w-8" /> Nebula
-          </Link>
-          <nav aria-label="Product" className="flex flex-col gap-4 font-sans text-xl font-light text-ink md:pr-20">
-            <span className="font-semibold">Product</span>
-            <Link href="/" className="hover:underline">Home</Link>
-            {started && <Link href="/files/" className="hover:underline">My files</Link>}
-            <Link href="/#features" className="hover:underline">Features</Link>
-            {started ? (
-              <Link href="/accounts/" className="hover:underline">Accounts</Link>
-            ) : (
-              <Link href="/#modes" className="hover:underline">Choose a mode</Link>
-            )}
-          </nav>
-          <nav aria-label="Learn" className="flex flex-col gap-4 font-sans text-xl font-light text-ink">
-            <span className="font-semibold">Learn</span>
-            <Link href="/faq/" className="hover:underline">FAQ</Link>
-            <Link href="/security/" className="hover:underline">Security</Link>
-            <Link href="/privacy/" className="hover:underline">Privacy policy</Link>
-          </nav>
-          {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG illustration */}
-          <img src="/art/peek.svg" alt="" className="-mb-[3.4rem] w-[420px] max-w-full self-end justify-self-end max-md:hidden" />
-        </div>
-        <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-ink pt-10 font-sans text-xl font-light text-ink max-md:text-base">
-          <p className="flex flex-wrap gap-x-6 gap-y-2">
-            <span>© 2026 Nebula. Your files, your accounts.</span>
-            <Link href="/privacy/" className="underline underline-offset-4">Privacy Policy</Link>
-          </p>
-          <Link href="/faq/" className="font-mono text-base font-semibold uppercase">Need help? →</Link>
-        </div>
+    <GrainSection label="Footer" className="border-t border-ink/15">
+      <Container className="flex flex-wrap items-center justify-between gap-x-10 gap-y-4 py-7">
+        <Link href="/" className="flex items-center gap-2 font-sans text-xl text-ink">
+          <Logo className="h-6 w-6" />
+          <span className="font-mono text-lg font-bold tracking-tight">Nebula</span>
+          <span className="hidden font-light text-ink/60 sm:inline">· Your files, your accounts</span>
+        </Link>
+        <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2 font-sans text-base text-ink/80">
+          {links.map((link) => (
+            <Link key={link.href} href={link.href} className="hover:text-ink hover:underline underline-offset-4">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+        <p className="font-mono text-sm text-ink/60">© 2026 Nebula</p>
       </Container>
     </GrainSection>
   );

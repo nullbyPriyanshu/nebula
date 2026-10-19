@@ -1,4 +1,6 @@
 // Modes, accounts, logins, settings and syncing the index between copies.
+import { clearUploadTemp } from "../crypto";
+import { rememberSessions } from "../google/drive";
 import { addAccount, reconnect, signOut, signOutAll } from "../google/auth";
 import { clearLocalIndex, loadLocalIndex } from "../index-db";
 import { createDefaultIndex } from "../index-default";
@@ -19,6 +21,7 @@ import {
   nextStamp,
   notify,
   persist,
+  readIfChanged,
   report,
   sameContent,
   set,
@@ -28,7 +31,7 @@ import {
 } from "./core";
 import { purgeOldTrash, revokeExpiredShares } from "./files";
 import { abortTransfers } from "./transfers";
-import { dropQueue, resumeLoginPauses } from "./uploads";
+import { dropQueue, loadInterrupted, resumeLoginPauses } from "./uploads";
 import { lock } from "./vault";
 
 export const MAX_ACCOUNTS = 5;
@@ -44,6 +47,9 @@ export function init() {
   if (state.mode !== "loading") {
     return;
   }
+
+  // Encrypted uploads from a closed tab may have left temporary files.
+  void clearUploadTemp();
 
   let saved: string | null = null;
 
@@ -71,7 +77,13 @@ export async function chooseMode(mode: "private" | "public") {
     await clearThumbs();
     forgetOpened();
     forgetSearches();
-    set({ mode });
+    rememberSessions(false);
+
+    try {
+      localStorage.removeItem("nebula-interrupted-uploads");
+    } catch {}
+
+    set({ mode, interrupted: [] });
 
     return;
   }
@@ -82,6 +94,8 @@ export async function chooseMode(mode: "private" | "public") {
 
   const cached = normalizeIndex(await loadLocalIndex().catch(() => null));
 
+  rememberSessions(true);
+  loadInterrupted();
   set({ mode, index: reconcile(state.index, cached) });
   void persist();
 }
@@ -179,12 +193,10 @@ function watchExpiry(email: string, expiresAt?: number) {
 }
 
 async function afterConnect(email: string, expiresAt?: number) {
-  const adapter = adapterFor(email);
-
   let index = state.index;
 
   try {
-    const remote = await adapter.readIndex();
+    const remote = await readIfChanged(email);
 
     if (remote) markWritten(email, remote.updatedAt);
 
@@ -389,7 +401,8 @@ export async function syncNow() {
     await Promise.all(
       connectedEmails().map(async (email) => {
         try {
-          const remote = await adapterFor(email).readIndex();
+          // Unchanged since this tab last saw it: nothing new to merge.
+          const remote = await readIfChanged(email);
 
           if (remote) remotes.set(email, remote);
         } catch {

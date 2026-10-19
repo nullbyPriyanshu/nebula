@@ -9,7 +9,7 @@ import {
   unshareFile,
   uploadFile,
 } from "../google/drive";
-import { readCloudIndex, writeCloudIndex } from "../google/google-index";
+import { cloudIndexVersion, readCloudIndex, writeCloudIndex } from "../google/google-index";
 import type { IndexFile } from "../index-types";
 import { getGoogleQuota } from "./google-quota";
 
@@ -58,7 +58,11 @@ export interface DriveAdapter {
 
   readIndex(): Promise<IndexFile | null>;
 
-  writeIndex(index: IndexFile): Promise<void>;
+  // Resolves with the stored copy's new version, when the provider has one.
+  writeIndex(index: IndexFile): Promise<string | null | void>;
+
+  // A cheap check: changes whenever the stored copy does. Null when unknown.
+  indexVersion(): Promise<string | null>;
 }
 
 export function createGoogleAdapter(email: string): DriveAdapter {
@@ -79,6 +83,7 @@ export function createGoogleAdapter(email: string): DriveAdapter {
     unshare: (fileId, permissionId) => unshareFile(email, fileId, permissionId),
     readIndex: () => readCloudIndex(email),
     writeIndex: (index) => writeCloudIndex(email, index),
+    indexVersion: () => cloudIndexVersion(email),
   };
 }
 

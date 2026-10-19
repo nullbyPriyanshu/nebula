@@ -9,6 +9,8 @@ type DriveFile = {
   mimeType: string;
   content: Buffer;
   trashed: boolean;
+  // Like Drive's: bumped on every change to the file's content.
+  version: number;
 };
 
 type Account = {
@@ -140,6 +142,7 @@ export class FakeGoogle {
         mimeType: body.mimeType ?? "application/octet-stream",
         content: Buffer.alloc(0),
         trashed: false,
+        version: 1,
       });
 
       return this.json(route, { id });
@@ -165,8 +168,9 @@ export class FakeGoogle {
       if (!file) return this.json(route, { error: { message: "Not found" } }, 404);
 
       file.content = request.postDataBuffer() ?? Buffer.alloc(0);
+      file.version++;
 
-      return this.json(route, {});
+      return this.json(route, { version: String(file.version) });
     }
 
     const permission = /^\/drive\/v3\/files\/([^/]+)\/permissions(?:\/([^/]+))?$/.exec(path);
@@ -187,7 +191,7 @@ export class FakeGoogle {
     }
 
     if (method === "GET") {
-      return this.json(route, {});
+      return this.json(route, url.searchParams.get("fields") === "version" ? { version: String(file.version) } : {});
     }
 
     if (method === "PATCH") {
@@ -233,6 +237,7 @@ export class FakeGoogle {
       mimeType: session.mimeType,
       content: Buffer.concat(session.chunks),
       trashed: false,
+      version: 1,
     });
     this.sessions.delete(id);
 

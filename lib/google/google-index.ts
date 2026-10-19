@@ -87,16 +87,17 @@ export async function readCloudIndex(email: string): Promise<IndexFile | null> {
   return index;
 }
 
-// Write the index to the account, creating the file on first use.
+// Write the index to the account, creating the file on first use. Resolves
+// with Drive's version number for the file after the write.
 export async function writeCloudIndex(
   email: string,
   index: IndexFile,
-): Promise<void> {
+): Promise<string | null> {
   const fileId = (await findIndexFile(email)) ?? (await createIndexFile(email));
 
-  await gfetch(
+  const response = await gfetch(
     email,
-    `${UPLOAD_API}/files/${encodeURIComponent(fileId)}?uploadType=media`,
+    `${UPLOAD_API}/files/${encodeURIComponent(fileId)}?uploadType=media&fields=version`,
     {
       method: "PATCH",
       headers: {
@@ -105,4 +106,22 @@ export async function writeCloudIndex(
       body: JSON.stringify(index),
     },
   );
+
+  return (await response.json().catch(() => ({}))).version ?? null;
+}
+
+// Drive's version number for the index file: it changes on every write, so an
+// unchanged number means the index need not be downloaded again. Null when the
+// account has no index yet.
+export async function cloudIndexVersion(email: string): Promise<string | null> {
+  const fileId = await findIndexFile(email);
+
+  if (!fileId) return null;
+
+  const response = await gfetch(
+    email,
+    `${DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=version`,
+  );
+
+  return (await response.json()).version ?? null;
 }
