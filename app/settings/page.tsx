@@ -57,10 +57,9 @@ function EncryptionSettings() {
     return (
       <>
         <p className="text-sm text-muted">
-          Encrypt files in this browser before they reach Google, so Google (or
-          anyone with access to the accounts) only holds unreadable bytes. File
-          names in Drive are hidden too. Encrypted files cannot be shared by link
-          or previewed in Google Drive.
+          Encrypt files in this browser before they reach Google, so Google only
+          holds unreadable bytes, names included. Encrypted files can&apos;t be
+          shared by link or previewed in Drive.
         </p>
         <button
           className="btn"
@@ -90,8 +89,7 @@ function EncryptionSettings() {
         <input type="checkbox" className="mt-1" checked={encrypt}
           onChange={(event) => void setEncrypt(event.target.checked)} />
         <span>
-          Encrypt new uploads. Files already uploaded stay as they are, and
-          encrypted files stay readable with the passphrase either way.
+          Encrypt new uploads. Files already uploaded stay as they are.
         </span>
       </label>
       <p className="text-sm text-muted">
@@ -137,12 +135,12 @@ function Setting({
   children: React.ReactNode;
 }) {
   return (
-    <section aria-label={title} className="card space-y-4 lg:h-full lg:min-h-0 lg:overflow-y-auto">
-      <div className="flex items-center gap-4">
-        <IconBox name={icon} />
-        <h2 className="card-title">{title}</h2>
+    <section aria-label={title} className="card space-y-3 lg:h-full lg:p-5">
+      <div className="flex items-center gap-3">
+        <IconBox name={icon} size="h-10 w-10" />
+        <h2 className="card-title lg:text-xl">{title}</h2>
       </div>
-      <div className="space-y-4 font-sans text-base font-light">{children}</div>
+      <div className="space-y-3 font-sans text-base font-light">{children}</div>
     </section>
   );
 }
@@ -153,11 +151,11 @@ export default function SettingsPage() {
 
   return (
     <AppPage tag="Settings" title="Settings" lead="How Nebula places and protects your files." art="/art/laptop.svg">
-      <div className="grid gap-5 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-2">
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:content-start">
         <Setting icon="bars" title="Placement">
           <p className="text-muted">
-            Which account receives a new file. Both keep each account&apos;s free
-            buffer and split a file only when no single account fits it.
+            Which account gets a new file. A file is split only when no single
+            account fits it.
           </p>
           <Select<Routing>
             label="Placement"
@@ -176,8 +174,8 @@ export default function SettingsPage() {
             <input type="checkbox" className="mt-1 h-5 w-5 accent-accent" checked={safeMode}
               onChange={(event) => setSafeMode(event.target.checked)} />
             <span>
-              Store a second copy of every new file in another account. Uses twice
-              the space; needs at least two connected accounts with room.
+              Keep a second copy of every new file in another account. Uses twice
+              the space and needs two accounts with room.
             </span>
           </label>
         </Setting>
@@ -186,7 +184,7 @@ export default function SettingsPage() {
           <EncryptionSettings />
         </Setting>
 
-        <div className="md:col-span-2 lg:min-h-0">
+        <div className="md:col-span-2">
           <Setting icon="user" title="Public PC mode">
             <label className="flex items-start gap-3">
               <input
@@ -211,8 +209,7 @@ export default function SettingsPage() {
               />
               <span>
                 Save nothing on this computer and log out after 5 idle minutes or
-                when the tab closes. Turning this on erases the file list saved in
-                this browser; your files and the copies in your accounts stay.
+                when the tab closes. Your files and accounts are untouched.
               </span>
             </label>
             <button className="btn btn-danger" onClick={async () => {
@@ -233,7 +230,7 @@ export default function SettingsPage() {
         <Setting icon="sparkle" title="About this browser">
           <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG illustration */}
-            <img src="/art/cloud.svg" alt="" className="h-16 w-auto shrink-0" />
+            <img src="/art/cloud.svg" alt="" className="h-12 w-auto shrink-0" />
             <p className="text-muted">
               {mode === "public"
                 ? "Public PC mode: nothing is kept here after you leave."

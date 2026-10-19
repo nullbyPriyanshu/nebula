@@ -27,8 +27,11 @@ test.afterEach(() => {
 
 async function start(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "My own device" }).click();
-  await expect(page).toHaveURL(/\/files\/$/);
+  // Under load Firefox can take the first click before the page is ready.
+  await expect(async () => {
+    if (!page.url().endsWith("/files/")) await page.getByRole("button", { name: "My own device" }).click({ timeout: 2000 });
+    await expect(page).toHaveURL(/\/files\/$/, { timeout: 2000 });
+  }).toPass();
   await page.getByRole("button", { name: "Connect account" }).click();
   await expect(page.getByText(`${EMAIL} is connected.`)).toBeVisible();
 }
@@ -125,16 +128,18 @@ test("encrypts files before they reach Google", async ({ page }) => {
   await page.getByRole("banner").getByRole("link", { name: "My files" }).click();
   await upload(page, "secret.txt", "the plans");
 
-  // The encrypted copy was staged in the browser's private storage; it is gone now.
-  const leftovers = await page.evaluate(async () => {
-    const names: string[] = [];
+  // The encrypted copy was staged in the browser's private storage; it is
+  // deleted (in the background) once uploaded.
+  const leftovers = () =>
+    page.evaluate(async () => {
+      const names: string[] = [];
 
-    for await (const name of (await navigator.storage.getDirectory()).keys()) names.push(name);
+      for await (const name of (await navigator.storage.getDirectory()).keys()) names.push(name);
 
-    return names.filter((name) => name.startsWith("nebula-upload-"));
-  });
+      return names.filter((name) => name.startsWith("nebula-upload-"));
+    });
 
-  expect(leftovers).toEqual([]);
+  await expect.poll(leftovers).toEqual([]);
 
   const [stored] = google.storedContent(EMAIL);
 
