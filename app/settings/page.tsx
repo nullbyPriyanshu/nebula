@@ -1,7 +1,7 @@
 "use client";
 
 import { useNebula } from "@/context/NebulaContext";
-import type { Routing, Theme } from "@/lib/index-types";
+import type { Routing } from "@/lib/index-types";
 import {
   ask,
   askText,
@@ -15,9 +15,9 @@ import {
   logoutAll,
   setRouting,
   setSafeMode,
-  setTheme,
 } from "@/lib/nebula-store";
 import { AppPage } from "@/components/site/AppPage";
+import { Select } from "@/components/Select";
 import { IconBox } from "@/components/landing/parts";
 
 // Asks twice; null when cancelled or the two do not match.
@@ -137,7 +137,7 @@ function Setting({
   children: React.ReactNode;
 }) {
   return (
-    <section data-reveal aria-label={title} className="card card-lift space-y-4">
+    <section aria-label={title} className="card space-y-4 lg:h-full lg:min-h-0 lg:overflow-y-auto">
       <div className="flex items-center gap-4">
         <IconBox name={icon} />
         <h2 className="card-title">{title}</h2>
@@ -149,21 +149,26 @@ function Setting({
 
 export default function SettingsPage() {
   const { index, mode } = useNebula();
-  const { routing, theme, safeMode } = index.settings;
+  const { routing, safeMode } = index.settings;
 
   return (
-    <AppPage tag="Settings" title="Settings" lead="How Nebula places, protects and shows your files.">
-      <div className="grid gap-6 lg:grid-cols-2">
+    <AppPage tag="Settings" title="Settings" lead="How Nebula places and protects your files." art="/art/laptop.svg">
+      <div className="grid gap-5 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-2">
         <Setting icon="bars" title="Placement">
           <p className="text-muted">
             Which account receives a new file. Both keep each account&apos;s free
             buffer and split a file only when no single account fits it.
           </p>
-          <select className="field w-full" aria-label="Routing" value={routing}
-            onChange={(event) => setRouting(event.target.value as Routing)}>
-            <option value="priority">Priority: fill accounts in order</option>
-            <option value="least-used">Least-used: spread evenly</option>
-          </select>
+          <Select<Routing>
+            label="Placement"
+            className="w-full"
+            value={routing}
+            onChange={setRouting}
+            options={[
+              { value: "priority", label: "Priority: fill accounts in order" },
+              { value: "least-used", label: "Least-used: spread evenly" },
+            ]}
+          />
         </Setting>
 
         <Setting icon="shield" title="Safe mode">
@@ -181,17 +186,7 @@ export default function SettingsPage() {
           <EncryptionSettings />
         </Setting>
 
-        <Setting icon="sparkle" title="Theme">
-          <p className="text-muted">The public pages stay light; the app follows this.</p>
-          <select className="field w-full" aria-label="Theme" value={theme}
-            onChange={(event) => setTheme(event.target.value as Theme)}>
-            <option value="system">Follow system</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </Setting>
-
-        <div className="lg:col-span-2">
+        <div className="md:col-span-2 lg:min-h-0">
           <Setting icon="user" title="Public PC mode">
             <label className="flex items-start gap-3">
               <input
@@ -234,6 +229,23 @@ export default function SettingsPage() {
             </button>
           </Setting>
         </div>
+
+        <Setting icon="sparkle" title="About this browser">
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG illustration */}
+            <img src="/art/cloud.svg" alt="" className="h-16 w-auto shrink-0" />
+            <p className="text-muted">
+              {mode === "public"
+                ? "Public PC mode: nothing is kept here after you leave."
+                : "Your file list is saved in this browser so it opens instantly, even offline."}
+            </p>
+          </div>
+          <p className="text-sm text-muted">
+            Shortcuts on My files: <kbd className="font-mono">/</kbd> search ·{" "}
+            <kbd className="font-mono">M</kbd> move · <kbd className="font-mono">Del</kbd> trash ·{" "}
+            <kbd className="font-mono">?</kbd> all shortcuts
+          </p>
+        </Setting>
       </div>
     </AppPage>
   );

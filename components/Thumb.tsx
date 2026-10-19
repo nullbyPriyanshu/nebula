@@ -70,7 +70,7 @@ export function Thumb({ file, large }: { file: FileRecord; large?: boolean }) {
     };
   }, [file, kind, seen]);
 
-  const size = large ? "aspect-[4/3] w-full" : "h-10 w-10";
+  const size = large ? "h-full w-full" : "h-10 w-10";
 
   const src = url ?? (broken ? null : remote);
 

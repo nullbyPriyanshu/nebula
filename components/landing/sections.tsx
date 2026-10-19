@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { preload } from "react-dom";
 import { useNebula } from "@/context/NebulaContext";
 import {
   Arrow,
@@ -10,9 +10,7 @@ import {
   Glyph,
   GrainSection,
   IconBox,
-  Logo,
   PlainSection,
-  Square,
   Tag,
 } from "./parts";
 
@@ -21,12 +19,27 @@ import {
 
 // The main call to action: start (choose a mode) on a first visit, or go
 // straight to the files once a mode is chosen.
-export function StartLink({ className = "l-btn l-btn-lime", label }: { className?: string; label?: string }) {
+export function StartLink({
+  className = "l-btn l-btn-lime",
+  label,
+  id,
+}: {
+  className?: string;
+  label?: string;
+  id?: string;
+}) {
   const { mode } = useNebula();
   const started = mode === "private" || mode === "public";
 
+  // Invisible (but holding its place) until the saved mode is read, so the
+  // label never switches from "Start free" to "Open my files" on screen.
   return (
-    <Link href={started ? "/files/" : "/#modes"} className={className}>
+    <Link
+      id={id}
+      href={started ? "/files/" : "/#modes"}
+      aria-hidden={mode === "loading"}
+      className={`${className} ${mode === "loading" ? "invisible" : ""}`}
+    >
       {started ? "Open my files" : (label ?? "Start free")} <Arrow />
     </Link>
   );
@@ -34,16 +47,19 @@ export function StartLink({ className = "l-btn l-btn-lime", label }: { className
 
 // The hero card is a sheet of paper with its top-right corner folded over.
 export function Hero() {
+  // Fetched with the page, so the mascot does not pop in afterwards.
+  preload("/art/hero.svg", { as: "image", fetchPriority: "high" });
+
   return (
-    <GrainSection id="top" label="Introduction" className="pb-16">
-      <Container className="relative flex flex-col items-center pt-[120px] max-md:pt-12">
+    <GrainSection id="top" label="Introduction" className="pb-12">
+      <Container className="relative flex flex-col items-center pt-16 max-md:pt-8">
         <div className="relative mx-auto w-full max-w-[1079px]">
           <div
             data-reveal
-            className="relative min-h-[657px] rounded-[20px] border-2 border-ink bg-vanilla text-ink max-lg:min-h-0"
+            className="relative min-h-[540px] rounded-[20px] border-2 border-ink bg-vanilla text-ink max-lg:min-h-0"
             style={{ clipPath: "polygon(0 0, calc(100% - 118px) 0, 100% 101px, 100% 100%, 0 100%)" }}
           >
-            <div className="relative z-10 flex min-h-[653px] flex-col justify-evenly gap-8 px-12 py-12 max-lg:min-h-0 max-md:px-6 max-md:pt-[110px] lg:max-w-[600px]">
+            <div className="relative z-10 flex min-h-[536px] flex-col justify-center gap-7 px-12 py-12 max-lg:min-h-0 max-md:px-6 max-md:pt-[110px] lg:max-w-[600px]">
               <h1 className="font-mono text-[60px] font-bold leading-[1.1] max-[1400px]:text-[54px] max-[1200px]:text-[48px] max-md:text-[34px]">
                 One drive, <br className="max-md:hidden" />every account
               </h1>
@@ -52,7 +68,7 @@ export function Hero() {
                 Files go straight from your browser to your own Drive.
               </p>
               <div>
-                <StartLink />
+                <StartLink id="hero-start" />
               </div>
               <p className="font-sans text-xl font-light">
                 Want to know more?{" "}
@@ -79,7 +95,7 @@ export function Hero() {
           <img
             src="/art/hero.svg"
             alt="Nebby the octopus holding a folder and a cloud in front of a storage panel"
-            className="pointer-events-none absolute bottom-[2px] right-[2px] w-[540px] max-[1200px]:w-[460px] max-lg:hidden"
+            className="pointer-events-none absolute bottom-[2px] right-[2px] w-[470px] max-[1200px]:w-[420px] max-lg:hidden"
           />
         </div>
       </Container>
@@ -92,14 +108,14 @@ export function Hero() {
 function WorksWith() {
   return (
     <>
-      <div className="mt-20 text-center">
-        <h2 className="mb-12 font-mono text-2xl font-medium text-ink">Works wherever you do</h2>
+      <div className="mt-14 text-center">
+        <h2 className="mb-8 font-mono text-xl font-medium text-ink">Works wherever you do</h2>
         <div className="relative w-full overflow-hidden">
           <div className="marquee flex w-max items-center gap-16">
             {[0, 1].map((copy) =>
               ["Google Drive", "Chrome", "Edge", "Firefox", "Safari", "Android", "iPhone", "Windows", "macOS", "Linux"].map((name) => (
                 <span key={`${copy}-${name}`} aria-hidden={copy === 1}
-                  className="font-sans text-[40px] font-bold tracking-tight text-[#58534f] opacity-80 max-md:text-3xl">
+                  className="font-sans text-[32px] font-bold tracking-tight text-[#58534f] opacity-80 max-md:text-2xl">
                   {name}
                 </span>
               )),
@@ -111,316 +127,130 @@ function WorksWith() {
   );
 }
 
-function Window({ title, children, className = "" }: { title: ReactNode; children: ReactNode; className?: string }) {
+const STEPS = [
+  {
+    icon: "user",
+    title: "Connect your accounts",
+    text: "Sign in with up to five Google accounts. Their free 15 GB each adds up into one pool.",
+  },
+  {
+    icon: "folder",
+    title: "Drop in your files",
+    text: "Upload files or whole folders. Nebula picks an account with room, and can keep a second copy.",
+  },
+  {
+    icon: "shield",
+    title: "Open them anywhere",
+    text: "Preview, search and share from any browser. Every download is checked byte for byte.",
+  },
+] as const;
+
+// Three steps on a line, numbered like a timeline.
+export function Steps() {
   return (
-    <div className={`flex flex-col ${className}`}>
-      <div className="flex h-[38px] items-center gap-2 border-b border-ink/15 px-4">{title}</div>
-      <div className="flex-1">{children}</div>
-    </div>
-  );
-}
-
-// A drawing of the app itself: accounts on the left, the pooled files on the right.
-export function AppMock() {
-  const accounts = [
-    { email: "me@gmail.com", used: 72, color: "bg-[#058bff]" },
-    { email: "school@gmail.com", used: 38, color: "bg-[#b095fa]" },
-    { email: "old.me@gmail.com", used: 55, color: "bg-[#fd7876]" },
-  ];
-  const files = [
-    ["Thesis draft.pdf", "#fd7876"], ["Lab photos", "#b095fa"], ["Lecture 7.mp4", "#058bff"],
-    ["Budget.xlsx", "#e9ff91"], ["Holiday", "#97d4ff"], ["Notes.md", "#f4ffc9"],
-  ];
-
-  return (
-    <div className="grid overflow-hidden rounded-[20px] border border-ink bg-[#fafafa] md:grid-cols-[2fr_3fr]" aria-hidden>
-      <Window
-        className="border-ink md:border-r"
-        title={
-          <>
-            <Logo className="h-4 w-4" />
-            <span className="font-sans text-[15px] font-semibold text-ink">Accounts</span>
-          </>
-        }
-      >
-        <div className="space-y-4 p-6">
-          {accounts.map((account) => (
-            <div key={account.email} className="rounded-[12px] border border-ink/20 bg-white p-3">
-              <div className="flex justify-between font-sans text-sm text-ink">
-                <span>{account.email}</span>
-                <span className="text-ink/60">{account.used}%</span>
-              </div>
-              <div className="mt-2 h-2 overflow-hidden rounded bg-[#e5ded5]">
-                <div className={`h-full ${account.color}`} style={{ width: `${account.used}%` }} />
-              </div>
-            </div>
-          ))}
-          <div className="flex items-center justify-between rounded-[12px] border border-ink/20 bg-white px-4 py-3 font-sans text-sm text-ink/50">
-            <span>Drop files to upload…</span>
-            <span className="rounded-md bg-[#e5ded5] px-3 py-1 text-xs text-ink/70">Upload</span>
-          </div>
-        </div>
-      </Window>
-      <Window
-        className="bg-vanilla"
-        title={
-          <>
-            <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-            <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-            <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-            <span className="ml-2 flex-1 rounded border border-ink/15 bg-[#efebe6] px-3 py-0.5 font-mono text-xs text-ink/60">
-              nebula · My files
-            </span>
-          </>
-        }
-      >
-        <div className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-3">
-          {files.map(([name, color]) => (
-            <div key={name} className="rounded-[12px] border border-ink/20 bg-white p-2">
-              <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md border border-ink/10 bg-[#f3efe9]">
-                <div className="absolute inset-x-0 bottom-0 h-1/3 opacity-60" style={{ background: color }} />
-                <span className="relative flex h-10 w-8 items-center justify-center rounded-[4px] border border-ink bg-white">
-                  <span className="h-1 w-4 rounded" style={{ background: color }} />
-                </span>
-              </div>
-              <p className="mt-2 truncate font-sans text-xs text-ink">{name}</p>
-            </div>
-          ))}
-        </div>
-      </Window>
-    </div>
-  );
-}
-
-export function OneSpace() {
-  return (
-    <PlainSection label="How it looks" squares={[["14%", "190px"], ["37.4%", "92%"], ["86%", "95%"]]}>
-      <Container className="py-[90px]">
-        <div data-reveal className="mx-auto mb-16 max-w-[860px] text-center">
-          <h2 className="l-h2">Your accounts become one space</h2>
-          <p className="l-lead mx-auto mt-6 max-w-[660px] text-ink/85">
-            No juggling logins. Connect each Google account once and Nebula
-            shows every file together, placing new ones wherever there is room.
-          </p>
-        </div>
-        <div data-reveal>
-          <AppMock />
-        </div>
-      </Container>
-    </PlainSection>
-  );
-}
-
-const AUDIENCES = {
-  Students: [
-    { icon: "bars", value: "75 GB", label: "of free storage", note: "with five Google accounts" },
-    { icon: "clock", value: "< 1 min", label: "to connect an account", note: "one Google sign-in" },
-    { icon: "zero", value: "Zero", label: "servers in between", note: "browser to Drive, directly" },
-  ],
-  Families: [
-    { icon: "user", value: "5", label: "accounts in one pool", note: "set which fills first" },
-    { icon: "shield", value: "2×", label: "copies with safe mode", note: "in two different accounts" },
-    { icon: "undo", value: "30 days", label: "to restore from the trash", note: "and undo for every change" },
-  ],
-  "Shared computers": [
-    { icon: "zero", value: "0 bytes", label: "left on the computer", note: "in Public PC mode" },
-    { icon: "clock", value: "5 min", label: "until idle logout", note: "and on closing the tab" },
-    { icon: "lock", value: "1 click", label: "to log out everywhere", note: "logins are never saved" },
-  ],
-} as const;
-
-export function Audience() {
-  const [tab, setTab] = useState<keyof typeof AUDIENCES>("Students");
-
-  return (
-    <GrainSection id="features" label="Who it's for">
-      <Container className="relative py-[100px]">
-        <header data-reveal className="mb-12 flex flex-col items-start gap-6">
-          <Tag>Who it&apos;s for</Tag>
-          <h2 className="l-h2">Built for anyone running out of space</h2>
-        </header>
-        <div data-reveal className="relative rounded-[34px] border border-ink bg-vanilla">
-          <div role="tablist" aria-label="Who it's for" className="flex flex-wrap gap-2 px-10 py-4 max-md:px-4">
-            {(Object.keys(AUDIENCES) as (keyof typeof AUDIENCES)[]).map((name) => (
-              <button
-                key={name}
-                role="tab"
-                aria-selected={tab === name}
-                onClick={() => setTab(name)}
-                className={`rounded-full px-6 py-3 font-sans text-base font-medium transition-colors ${
-                  tab === name ? "bg-ink text-white" : "text-ink/50 hover:text-ink"
-                }`}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-          <div role="tabpanel" className="grid border-y border-ink md:grid-cols-3">
-            {AUDIENCES[tab].map((stat, i) => (
-              <div key={stat.label} className={`flex flex-col items-center px-6 py-10 text-center ${i > 0 ? "border-ink max-md:border-t md:border-l" : ""}`}>
-                <span className="text-ink/50"><Glyph name={stat.icon} /></span>
-                <p className="mt-2 font-mono text-[56px] font-bold leading-tight text-ink max-md:text-[44px]">{stat.value}</p>
-                <p className="font-sans text-lg font-semibold text-ink">{stat.label}</p>
-                <p className="font-sans text-sm font-light text-ink/60">{stat.note}</p>
-              </div>
-            ))}
-          </div>
-          <Square still className="left-0 top-[calc(100%-145px)] max-md:hidden" />
-          <Square still className="left-full top-[calc(100%-145px)] max-md:hidden" />
-          <div className="px-8 py-10 text-center">
-            <p className="font-sans text-[32px] font-semibold text-ink max-md:text-2xl">
-              Stop deleting files. Start pooling space.
-            </p>
-            <p className="mx-auto mt-3 max-w-[660px] font-sans text-lg font-light text-ink/80">
-              Nebula adds up the free space you already have, keeps a buffer for
-              Gmail and Photos, and splits a file across accounts only when nothing
-              else fits, and only after asking.
-            </p>
-          </div>
-        </div>
-        <div className="mt-10 flex justify-center">
-          <StartLink
-            label="Get started for free"
-            className="inline-flex h-[62px] items-center gap-2 rounded-[13px] border border-ink bg-lime px-8 font-sans text-lg font-semibold text-ink transition-colors hover:bg-lime-strong"
-          />
-        </div>
-      </Container>
-    </GrainSection>
-  );
-}
-
-const Chip = ({ children }: { children: ReactNode }) => (
-  <code className="rounded bg-ink px-2 py-0.5 font-mono text-sm text-white">{children}</code>
-);
-
-function Feature({ icon, title, children, small }: { icon: Parameters<typeof IconBox>[0]["name"]; title: string; children: ReactNode; small?: boolean }) {
-  return (
-    <div className="p-10 max-md:p-6">
-      <div className="mb-6 flex items-center gap-4">
-        <IconBox name={icon} size={small ? "h-10 w-10" : "h-12 w-12"} />
-        <h3 className="font-sans text-2xl font-semibold text-ink">{title}</h3>
-      </div>
-      <div className="font-sans text-base font-light leading-relaxed text-ink/85">{children}</div>
-    </div>
-  );
-}
-
-export function HowItWorks() {
-  return (
-    <PlainSection label="How it works" squares={[["37.4%", "95%"], ["86%", "96%"]]}>
-      <Container className="py-[100px]">
-        <header data-reveal className="mb-14 flex flex-col items-start gap-6">
+    <PlainSection id="features" label="How it works" squares={[["14%", "110px"], ["86%", "85%"]]}>
+      <Container className="py-20 max-md:py-12">
+        <div data-reveal className="mb-14 flex flex-col items-center gap-5 text-center">
           <Tag>How it works</Tag>
-          <h2 className="l-h2">One space, every account</h2>
-          <p className="l-lead max-w-[640px] text-ink/85">
-            Whether you are on a laptop, a phone or a library computer, Nebula
-            meets you in the browser.
+          <h2 className="l-h2">Three steps to more space</h2>
+        </div>
+        <ol className="relative grid gap-10 md:grid-cols-3 md:gap-8">
+          {/* The line joining the numbers. */}
+          <span aria-hidden className="absolute left-[16.6%] right-[16.6%] top-7 hidden h-px bg-ink md:block" />
+          {STEPS.map((step, i) => (
+            <li key={step.title} data-reveal style={{ transitionDelay: `${i * 120}ms` }}
+              className="relative flex flex-col items-center gap-4 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full border border-ink bg-lime font-mono text-xl font-bold text-ink">
+                {i + 1}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-ink/60"><Glyph name={step.icon} /></span>
+                <h3 className="font-sans text-2xl font-semibold text-ink">{step.title}</h3>
+              </div>
+              <p className="max-w-[320px] font-sans text-lg font-light leading-relaxed text-ink/80">{step.text}</p>
+            </li>
+          ))}
+        </ol>
+      </Container>
+    </PlainSection>
+  );
+}
+
+const PROMISE = [
+  {
+    icon: "server",
+    title: "No middleman",
+    text: "Your files never pass through a Nebula server. There isn't one.",
+    note: "Browser to your own Google accounts, directly.",
+  },
+  {
+    icon: "lock",
+    title: "Nothing remembered",
+    text: "Logins live in memory and vanish when the tab closes.",
+    note: "Encrypt files with your own passphrase, if you like.",
+  },
+  {
+    icon: "check",
+    title: "Nothing altered",
+    text: "Every download is checked, byte for byte, before you get it.",
+    note: "A damaged copy is refused, and the safe copy used.",
+  },
+] as const;
+
+// The three commitments, right under the hero.
+export function PromiseBand() {
+  return (
+    <PlainSection label="Our promise" squares={[["37.4%", "60px"], ["86%", "40%"]]}>
+      <Container className="py-20 max-md:py-12">
+        <div data-reveal className="mx-auto mb-14 flex max-w-[720px] flex-col items-center gap-5 text-center">
+          <Tag>Our promise</Tag>
+          <h2 className="font-mono text-[52px] font-bold leading-[1.1] text-ink max-[1200px]:text-[44px] max-md:text-[32px]">
+            Built on a promise
+          </h2>
+          <p className="l-lead text-ink/80">
+            More space without handing your files to someone new. Three things
+            Nebula will always do:
           </p>
-        </header>
-        <div data-reveal className="relative grid overflow-hidden rounded-[34px] border border-ink bg-vanilla md:grid-cols-2">
-          <Feature icon="folder" title="For your files">
-            <ul className="list-disc space-y-4 pl-5">
-              <li><Chip>drop a folder</Chip> and its structure comes along</li>
-              <li>Preview photos, videos, PDFs and text without downloading them first</li>
-              <li><Chip>/</Chip> searches every folder at once, accents and all</li>
-              <li>Star, rename, move and share, with undo for each</li>
-            </ul>
-          </Feature>
-          <div className="border-ink max-md:border-t md:border-l">
-            <Feature icon="shield" title="For your peace of mind">
-              <ul className="list-disc space-y-4 pl-5">
-                <li>Safe mode keeps a second copy of every file in another account</li>
-                <li>Every download is checked against its fingerprint, byte for byte</li>
-                <li>Optional encryption: Google only ever stores scrambled bytes</li>
-              </ul>
-            </Feature>
-          </div>
-          <div className="border-t border-ink">
-            <Feature icon="play" title="Upload anywhere" small>
-              Three uploads at a time, each to a different account. Pause, resume
-              or cancel any of them, and watch the speed and time left.
-            </Feature>
-          </div>
-          <div className="border-t border-ink md:border-l">
-            <Feature icon="undo" title="Undo everything" small>
-              Moved the wrong folder? Trashed a file? Every change comes with an
-              Undo, and the trash keeps files for 30 days.
-            </Feature>
-          </div>
+        </div>
+        <div className="grid overflow-hidden rounded-[34px] border border-ink bg-vanilla md:grid-cols-3 max-md:rounded-[24px]">
+          {PROMISE.map((item, i) => (
+            <figure key={item.title} data-reveal style={{ transitionDelay: `${i * 120}ms` }}
+              className={`flex flex-col gap-5 p-8 max-md:p-6 ${i > 0 ? "border-ink max-md:border-t md:border-l" : ""}`}>
+              <div className="flex items-center justify-between">
+                <IconBox name={item.icon} />
+                <span aria-hidden className="font-mono text-6xl font-bold leading-none text-lime-strong [-webkit-text-stroke:1.5px_#383838]">”</span>
+              </div>
+              <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-ink/60">{item.title}</h3>
+              <blockquote className="font-mono text-[22px] font-medium leading-snug text-ink">{item.text}</blockquote>
+              <figcaption className="mt-auto border-t border-ink/15 pt-4 font-sans text-base font-light text-ink/75">{item.note}</figcaption>
+            </figure>
+          ))}
         </div>
       </Container>
     </PlainSection>
   );
 }
 
-function Tile({ label, mono, color, on = true }: { label: string; mono: string; color: string; on?: boolean }) {
-  return (
-    <div className="flex w-[74px] flex-col items-center gap-2">
-      <div className="relative">
-        <div className={`flex h-[68px] w-[73px] items-center justify-center rounded-[13px] border ${on ? "border-ink bg-white" : "border-ink/20 bg-transparent"}`}>
-          <span className="flex h-9 w-9 items-center justify-center rounded-[9px] font-mono text-base font-bold text-ink" style={{ background: color }}>
-            {mono}
-          </span>
-        </div>
-        {on && (
-          <span className="absolute -right-2 -top-3 flex h-[22px] w-[38px] items-center justify-center rounded-full border border-ink bg-sky text-ink">
-            <Glyph name="check" className="h-3.5 w-3.5" />
-          </span>
-        )}
-      </div>
-      <span className="font-sans text-[15px] text-ink">{label}</span>
-    </div>
-  );
-}
-
-export function Stack() {
-  const rows = [
-    {
-      title: "Storage",
-      text: "Up to five of your own Google Drives, 15 GB free each",
-      tiles: [["Drive 1", "1", "#97d4ff"], ["Drive 2", "2", "#f4ffc9"], ["Drive 3", "3", "#e9ff91"], ["Drive 4", "4", "#ceebff"], ["Drive 5", "5", "#b095fa"]],
-    },
-    {
-      title: "Runs in",
-      text: "Any modern browser, nothing to install",
-      tiles: [["Chrome", "Ch", "#fd7876"], ["Edge", "Ed", "#97d4ff"], ["Firefox", "Ff", "#ffb57a"], ["Safari", "Sa", "#ceebff"], ["Brave", "Br", "#ffd0c2"]],
-    },
-    {
-      title: "Installs as an app",
-      text: "Add it to your home screen or dock; it opens offline",
-      tiles: [["Windows", "Wi", "#ceebff"], ["macOS", "Mac", "#e5ded5"], ["Linux", "Lx", "#f4ffc9"], ["Android", "An", "#e9ff91"], ["iPhone", "iOS", "#b095fa"]],
-    },
+// The key figures, on a grain band.
+export function Figures() {
+  const figures = [
+    ["75 GB", "free storage", "with five Google accounts"],
+    ["0", "servers in between", "nothing to trust but Google"],
+    ["AES-256", "optional encryption", "in your browser"],
+    ["30 days", "to undo a delete", "plus undo for every change"],
   ];
 
   return (
-    <GrainSection label="Our stack" className="py-20">
-      <Container>
-        <div data-reveal className="relative grid overflow-hidden rounded-[34px] border border-ink bg-vanilla lg:grid-cols-[577px_1fr]">
-          <div className="flex flex-col justify-end gap-6 px-10 pt-16 max-md:px-6">
-            <div className="mt-auto flex flex-col gap-6">
-              <Tag>Our stack</Tag>
-              <h2 className="l-h2">Built on what you have</h2>
-              <p className="l-lead text-ink/85">
-                No new account, no subscription and no app store. Nebula works with
-                the Google accounts and browser you already use.
-              </p>
+    <GrainSection label="In numbers">
+      <Container className="py-16 max-md:py-10">
+        <div data-reveal className="grid grid-cols-2 gap-px overflow-hidden rounded-[24px] border border-ink bg-ink lg:grid-cols-4">
+          {figures.map(([value, label, note]) => (
+            <div key={label} className="flex flex-col items-center gap-1 bg-vanilla px-4 py-8 text-center max-md:py-6">
+              <span className="font-mono text-[44px] font-bold leading-tight text-ink max-md:text-[28px]">{value}</span>
+              <span className="font-sans text-base font-semibold text-ink">{label}</span>
+              <span className="font-sans text-sm font-light text-ink/60">{note}</span>
             </div>
-            {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG illustration */}
-            <img src="/art/laptop.svg" alt="Nebby the octopus typing on a laptop on a cloud" className="-mb-px mt-4 w-full max-w-[520px]" />
-          </div>
-          <div className="border-ink max-lg:border-t lg:border-l">
-            {rows.map((row, i) => (
-              <div key={row.title} className={`px-8 py-8 max-md:px-6 ${i > 0 ? "border-t border-ink" : ""}`}>
-                <h3 className="font-sans text-2xl font-semibold text-ink">{row.title}</h3>
-                <p className="mt-2 font-sans text-base text-ink/80">{row.text}</p>
-                <div className="mt-6 flex flex-wrap gap-6">
-                  {row.tiles.map(([label, mono, color]) => (
-                    <Tile key={label} label={label} mono={mono} color={color} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </Container>
     </GrainSection>
@@ -477,7 +307,7 @@ export function Modes({ onChoose }: { onChoose: (mode: "private" | "public") => 
         <div className="mx-auto mt-14 grid max-w-[776px] gap-8 md:grid-cols-2">
           {plans.map((plan, i) => (
             <div key={plan.name} data-reveal style={{ transitionDelay: `${i * 140}ms` }}
-              className="flex flex-col rounded-[34px] border border-ink bg-vanilla p-8 transition-shadow hover:shadow-[8px_8px_0_0_#383838] max-md:p-6">
+              className="flex flex-col rounded-[34px] border border-ink bg-vanilla p-8 max-md:p-6">
               <div className="flex items-start justify-between gap-4">
                 <h3 className="font-mono text-[32px] font-medium text-ink">{plan.name}</h3>
                 <span className="font-mono text-[40px] font-bold leading-none text-ink">{plan.price}</span>
@@ -495,7 +325,7 @@ export function Modes({ onChoose }: { onChoose: (mode: "private" | "public") => 
               </ul>
               <button
                 onClick={() => onChoose(plan.mode)}
-                className={`mt-10 flex h-14 items-center justify-center gap-2 rounded-[13px] border border-ink font-mono text-lg font-bold text-ink transition-colors ${
+                className={`press mt-10 flex h-14 items-center justify-center gap-2 rounded-[13px] border border-ink font-mono text-lg font-bold text-ink ${
                   plan.lime ? "bg-lime hover:bg-lime-strong" : "bg-transparent hover:bg-[#e5ded5]"
                 }`}
               >
@@ -507,57 +337,6 @@ export function Modes({ onChoose }: { onChoose: (mode: "private" | "public") => 
         </div>
       </Container>
     </PlainSection>
-  );
-}
-
-const PROMISES = [
-  "Your files never pass through a Nebula server. There isn't one.",
-  "Logins live in memory and vanish when the tab closes.",
-  "Every download is checked, byte for byte, before you get it.",
-];
-
-export function Promises() {
-  const [at, setAt] = useState(0);
-  const step = (by: number) => setAt((at + by + PROMISES.length) % PROMISES.length);
-
-  return (
-    <GrainSection label="Our promise">
-      {/* eslint-disable-next-line @next/next/no-img-element -- decoration */}
-      <img src="/art/cloud.svg" alt="" className="absolute right-4 top-2 w-[260px] max-md:w-[150px]" />
-      {/* eslint-disable-next-line @next/next/no-img-element -- decoration */}
-      <img src="/art/cloud.svg" alt="" className="absolute bottom-0 left-4 w-[280px] -scale-x-100 max-md:w-[150px]" />
-      <Container className="relative py-[112px]">
-        <div data-reveal className="flex flex-col items-center gap-10 text-center">
-          <h2 className="font-mono text-6xl font-bold leading-[1.2] text-ink max-md:text-4xl">Built on a promise</h2>
-          <p className="max-w-[540px] font-sans text-lg font-light text-ink">
-            Nebula is built for people who want more space without handing their
-            files to someone new. Three things it will always do:
-          </p>
-          <div className="flex w-full items-center justify-between gap-6">
-            <button aria-label="Previous promise" onClick={() => step(-1)}
-              className="flex h-12 w-12 shrink-0 items-center justify-center border border-ink bg-lime text-ink hover:bg-lime-strong">
-              <Arrow className="h-4 w-4 rotate-180" />
-            </button>
-            <figure aria-live="polite" className="mx-auto max-w-[760px]">
-              <blockquote className="font-mono text-[32px] font-medium leading-snug text-ink max-md:text-xl">
-                “{PROMISES[at]}”
-              </blockquote>
-              <figcaption className="mt-8 flex items-center justify-center gap-3 font-sans text-sm text-ink/70">
-                <Logo className="h-12 w-12" />
-                <span className="text-left">
-                  <span className="block font-semibold text-ink">The Nebula promise</span>
-                  {at + 1} of {PROMISES.length}
-                </span>
-              </figcaption>
-            </figure>
-            <button aria-label="Next promise" onClick={() => step(1)}
-              className="flex h-12 w-12 shrink-0 items-center justify-center border border-ink bg-lime text-ink hover:bg-lime-strong">
-              <Arrow className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </Container>
-    </GrainSection>
   );
 }
 

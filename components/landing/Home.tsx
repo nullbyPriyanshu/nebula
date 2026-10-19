@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { chooseMode } from "@/lib/nebula-store";
-import { Audience, CallToAction, Hero, HowItWorks, Modes, OneSpace, Stack } from "./sections";
+import { Figures, Hero, Modes, PromiseBand, Steps } from "./sections";
 
-// The landing page: the whole tour of Nebula, ending in choosing a mode,
-// which opens My files.
+// The landing page: what Nebula is, what it promises, the figures, three
+// steps, then choosing a mode, which opens My files.
 export function Home() {
   const router = useRouter();
 
@@ -17,12 +17,10 @@ export function Home() {
   return (
     <>
       <Hero />
-      <OneSpace />
-      <Audience />
-      <HowItWorks />
-      <Stack />
+      <PromiseBand />
+      <Figures />
+      <Steps />
       <Modes onChoose={choose} />
-      <CallToAction />
     </>
   );
 }

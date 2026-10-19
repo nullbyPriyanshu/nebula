@@ -9,9 +9,8 @@ import {
   refreshQuota,
   reorderAccounts,
 } from "@/lib/nebula-store";
-import { AppPage } from "@/components/site/AppPage";
+import { AppPage, Panel } from "@/components/site/AppPage";
 import { Stat, StatRow } from "@/components/site/Stat";
-import { Glyph } from "@/components/landing/parts";
 
 export default function AccountsPage() {
   const { index, runtime } = useNebula();
@@ -26,6 +25,7 @@ export default function AccountsPage() {
       tag="Accounts"
       title="Your accounts"
       lead="Connect up to five Google accounts. Their free space adds up into one pool."
+      art="/art/crew.svg"
       actions={
         <>
           <button className="l-btn l-btn-lime" disabled={accounts.length >= MAX_ACCOUNTS} onClick={connectAccount}>
@@ -37,50 +37,61 @@ export default function AccountsPage() {
         </>
       }
     >
-      <section data-reveal aria-label="Overview" className="grid gap-6 lg:grid-cols-[1.1fr_2fr]">
-        <div className="card card-lift flex items-center">
-          <SpaceRing used={used} total={total} />
-        </div>
-        <StatRow>
-          <Stat value={`${accounts.length}/${MAX_ACCOUNTS}`} label="accounts" note="in the pool" />
-          <Stat value={connected.length} label="connected" note="this session" />
-          <Stat value={index.settings.routing === "priority" ? "Order" : "Even"} label="placement" note="change in Settings" />
-          <Stat value={index.settings.safeMode ? "On" : "Off"} label="safe mode" note="second copies" />
-        </StatRow>
-      </section>
+      <div className="grid gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[300px_1fr] lg:grid-rows-[minmax(0,1fr)]">
+        <aside aria-label="Overview" className="flex flex-col gap-5 lg:min-h-0 lg:overflow-hidden">
+          <div className="card">
+            <SpaceRing used={used} total={total} compact />
+          </div>
+          <StatRow compact>
+            <Stat value={`${accounts.length}/${MAX_ACCOUNTS}`} label="in the pool" />
+            <Stat value={connected.length} label="connected" />
+            <Stat value={index.settings.routing === "priority" ? "Order" : "Even"} label="placement" />
+            <Stat value={index.settings.safeMode ? "On" : "Off"} label="safe mode" />
+          </StatRow>
+        </aside>
 
-      <div data-reveal className="card flex gap-4 bg-paper">
-        <span className="mt-1 text-muted"><Glyph name="sparkle" /></span>
-        <p className="font-sans text-base font-light">
-          New files go to the account with the highest priority first: drag the
-          cards or use the arrows to reorder. Nebula only sees files it created.
-          Logins last about an hour and are never saved, so you reconnect with
-          one click after reopening the tab.
-        </p>
+        <Panel
+          label="Your accounts"
+          title={
+            <div>
+              <h2 className="font-sans text-xl font-semibold">Accounts · {accounts.length} of {MAX_ACCOUNTS}</h2>
+              {accounts.length > 1 && (
+                <p className="font-sans text-sm font-light text-muted">Drag to reorder: the top account fills first.</p>
+              )}
+            </div>
+          }
+          aside={
+            accounts.length > 0 && accounts.length < MAX_ACCOUNTS ? (
+              <button className="btn btn-primary" onClick={connectAccount}>Add account</button>
+            ) : undefined
+          }
+        >
+          {accounts.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG illustration */}
+              <img src="/art/crew.svg" alt="" className="h-36 w-auto" />
+              <p className="card-title">No accounts yet</p>
+              <p className="max-w-md font-sans text-base font-light text-muted">
+                Connect your first Google account to start pooling its free space.
+              </p>
+              <button className="l-btn l-btn-lime mt-2" onClick={connectAccount}>Connect Google account</button>
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {accounts.map((account, i) => (
+                <AccountCard key={account.email} account={account}
+                  runtime={runtime[account.email]} position={i} count={accounts.length}
+                  onReorder={(dragged, target) => {
+                    const order = accounts.map((a) => a.email).filter((e) => e !== dragged);
+
+                    order.splice(order.indexOf(target) + (i > accounts.findIndex((a) => a.email === dragged) ? 1 : 0), 0, dragged);
+                    reorderAccounts(order);
+                  }} />
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
-
-      {accounts.length === 0 ? (
-        <div data-reveal className="card flex flex-col items-center gap-4 py-12 text-center">
-          <p className="card-title">No accounts yet</p>
-          <p className="max-w-md font-sans text-lg font-light text-muted">
-            Connect your first Google account to start pooling its free space.
-          </p>
-          <button className="l-btn l-btn-lime" onClick={connectAccount}>Connect Google account</button>
-        </div>
-      ) : (
-        <ul className="grid gap-6 lg:grid-cols-2">
-          {accounts.map((account, i) => (
-            <AccountCard key={account.email} account={account}
-              runtime={runtime[account.email]} position={i} count={accounts.length}
-              onReorder={(dragged, target) => {
-                const order = accounts.map((a) => a.email).filter((e) => e !== dragged);
-
-                order.splice(order.indexOf(target) + (i > accounts.findIndex((a) => a.email === dragged) ? 1 : 0), 0, dragged);
-                reorderAccounts(order);
-              }} />
-          ))}
-        </ul>
-      )}
     </AppPage>
   );
 }

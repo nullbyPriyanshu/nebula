@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useNebula } from "@/context/NebulaContext";
 import { formatBytes } from "@/lib/format";
 import { normalizePath } from "@/lib/folders";
@@ -132,8 +133,26 @@ function Row({ item, duplicatePath }: { item: UploadItem; duplicatePath?: string
   );
 }
 
+// A dock in the corner, on every app page, like a cloud drive's upload panel.
+// It folds down to one progress line and clears itself away when emptied.
 export function UploadQueue() {
   const { queue, index } = useNebula();
+  const [open, setOpen] = useState(true);
+
+  // Once everything finished cleanly, the dock steps out of the way by itself.
+  // Anything that needs a decision (a failure, a duplicate, a name clash) keeps it.
+  const settled =
+    queue.length > 0 &&
+    queue.every((item) => item.status === "done" || item.status === "cancelled") &&
+    !queue.some((item) => item.sameNameAs);
+
+  useEffect(() => {
+    if (!settled) return;
+
+    const timer = window.setTimeout(clearFinished, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [settled]);
 
   if (queue.length === 0) {
     return null;
@@ -150,45 +169,68 @@ export function UploadQueue() {
   const pausedByUser = queue.some((item) => item.status === "paused" && item.pausedBy === "user");
   const finished = queue.some((item) => ["done", "failed", "skipped", "cancelled"].includes(item.status));
   const done = queue.filter((item) => item.status === "done").length;
+  const failed = queue.filter((item) => item.status === "failed").length;
+
+  const heading = busy > 0
+    ? `Uploading ${busy} file${busy === 1 ? "" : "s"}`
+    : failed > 0
+      ? `${failed} upload${failed === 1 ? "" : "s"} need attention`
+      : `${done} upload${done === 1 ? "" : "s"} done`;
 
   return (
-    <section data-reveal className="card space-y-4" aria-label="Uploads">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="card-title">Uploads</h2>
-          <p className="font-sans text-sm text-muted" aria-live="polite">
-            {done} of {counted.length} done · {formatBytes(sent)} of {formatBytes(total)}
+    <section
+      aria-label="Uploads"
+      className="fixed bottom-4 right-4 z-40 w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[20px] border border-border bg-card shadow-[5px_5px_0_0_var(--border)]"
+    >
+      <div className="flex items-center gap-3 border-b border-border bg-lime px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-sans text-base font-semibold">{heading}</h2>
+          <p className="font-mono text-xs text-ink/70" aria-live="polite">
+            {done}/{counted.length} · {formatBytes(sent)} of {formatBytes(total)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {busy > 0 && <button className="btn" onClick={pauseAll}>Pause all</button>}
-          {pausedByUser && <button className="btn" onClick={resumeAll}>Resume all</button>}
-          {(busy > 0 || pausedByUser) && (
-            <button className="btn" onClick={cancelAll}>Cancel all</button>
-          )}
-          {finished && <button className="btn" onClick={clearFinished}>Clear finished</button>}
-        </div>
+        <button className="btn btn-icon h-9 w-9" aria-label={open ? "Fold uploads" : "Show uploads"}
+          aria-expanded={open} onClick={() => setOpen(!open)}>
+          <Icon name={open ? "down" : "up"} />
+        </button>
+        {!busy && !pausedByUser && (
+          <button className="btn btn-icon h-9 w-9" aria-label="Close uploads" onClick={clearFinished}>
+            <Icon name="close" />
+          </button>
+        )}
       </div>
       {total > 0 && (
-        <div className="h-1.5 overflow-hidden rounded bg-track">
-          <div className="h-full bg-accent" style={{ width: `${(sent / total) * 100}%` }} />
+        <div className="h-1 bg-track">
+          <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${(sent / total) * 100}%` }} />
         </div>
       )}
-      <ul className="max-h-80 space-y-3 overflow-y-auto">
-        {queue.map((item) => {
-          const duplicate = item.duplicateOf
-            ? index.files.find((file) => file.id === item.duplicateOf)
-            : undefined;
+      {open && (
+        <>
+          <ul className="max-h-[min(320px,45vh)] space-y-3 overflow-y-auto px-4 py-3">
+            {queue.map((item) => {
+              const duplicate = item.duplicateOf
+                ? index.files.find((file) => file.id === item.duplicateOf)
+                : undefined;
 
-          return (
-            <Row
-              key={item.id}
-              item={item}
-              duplicatePath={duplicate ? normalizePath(duplicate.folder) : undefined}
-            />
-          );
-        })}
-      </ul>
+              return (
+                <Row
+                  key={item.id}
+                  item={item}
+                  duplicatePath={duplicate ? normalizePath(duplicate.folder) : undefined}
+                />
+              );
+            })}
+          </ul>
+          {(busy > 0 || pausedByUser || finished) && (
+            <div className="flex flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
+              {busy > 0 && <button className="btn h-9" onClick={pauseAll}>Pause all</button>}
+              {pausedByUser && <button className="btn h-9" onClick={resumeAll}>Resume all</button>}
+              {(busy > 0 || pausedByUser) && <button className="btn h-9" onClick={cancelAll}>Cancel all</button>}
+              {finished && <button className="btn h-9" onClick={clearFinished}>Clear finished</button>}
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }

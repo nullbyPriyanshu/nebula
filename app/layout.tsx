@@ -1,19 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Figtree, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
 import { Shell } from "@/components/Shell";
 import { NebulaProvider } from "@/context/NebulaContext";
 
-const figtree = Figtree({
+// Both fonts live in the repo (SIL Open Font License), so neither the dev
+// server, the build nor the installed app depends on reaching Google Fonts.
+const figtree = localFont({
+  src: "./fonts/Figtree-Variable.woff2",
   variable: "--font-figtree",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: "300 700",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "./fonts/GeistMono-Variable.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -32,6 +37,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      // Smooth scrolling for in-page links, but not when Next changes pages.
+      data-scroll-behavior="smooth"
       className={`${figtree.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="grain min-h-full flex flex-col">

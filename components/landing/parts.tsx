@@ -46,15 +46,19 @@ export function PlainSection({
   children,
   label,
   squares = [],
+  className = "",
+  innerClassName = "",
 }: {
   id?: string;
   children: ReactNode;
   label?: string;
   // [left, top] pairs for the decorative squares.
   squares?: [string, string][];
+  className?: string;
+  innerClassName?: string;
 }) {
   return (
-    <section id={id} aria-label={label} className="relative overflow-hidden bg-paper">
+    <section id={id} aria-label={label} className={`relative overflow-hidden bg-paper ${className}`}>
       <div aria-hidden className="pointer-events-none absolute inset-0 max-md:hidden">
         {LINES.map((left) => (
           <span key={left} className="absolute inset-y-0 w-px bg-line" style={{ left }} />
@@ -63,7 +67,7 @@ export function PlainSection({
           <Square key={i} style={{ left, top, animationDelay: `${i * 1.3}s` }} />
         ))}
       </div>
-      <div className="relative">{children}</div>
+      <div className={`relative ${innerClassName}`}>{children}</div>
     </section>
   );
 }

@@ -22,45 +22,7 @@
   --grain-opacity: 1;
 }
 
-/* Explicit choice from Settings. */
-:root.dark {
-  color-scheme: dark;
-  --background: #23211f;
-  --foreground: #f3eee8;
-  --card: #2c2926;
-  --paper: #262321;
-  --muted: #aaa39c;
-  --border: #77706a;
-  --line: #3b3734;
-  --track: #3b3734;
-  --accent: #3aa3ff;
-  --accent-foreground: #101010;
-  --sky: #1f3a52;
-  --danger: #ff8a86;
-  --grain-opacity: 0.35;
-}
-
-/* "System": follow the device unless light was chosen. */
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    color-scheme: dark;
-    --background: #23211f;
-    --foreground: #f3eee8;
-    --card: #2c2926;
-    --paper: #262321;
-    --muted: #aaa39c;
-    --border: #77706a;
-    --line: #3b3734;
-    --track: #3b3734;
-    --accent: #3aa3ff;
-    --accent-foreground: #101010;
-    --sky: #1f3a52;
-    --danger: #ff8a86;
-    --grain-opacity: 0.35;
-  }
-}
-
-/* Public pages are designed in light only. */
+/* The single palette, also set on the page wrapper. */
 .theme-light {
   color-scheme: light;
   --background: #f6f2ee;
@@ -112,6 +74,119 @@ html {
   scroll-behavior: smooth;
 }
 
+/* A normal arrow cursor in Nebula's blue, with a white inner edge and a dark
+   outline so it reads on any background. A deeper blue over anything
+   clickable. Text fields keep the I-beam; touch screens have no cursor.
+   In the base layer, so utilities such as cursor-not-allowed still win. */
+@layer base {
+  @media (pointer: fine) {
+    html {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M3 2 L3 21.5 L7.8 17 L11.2 24.6 L14.6 23.1 L11.3 15.6 L17.8 15.6 Z' fill='none' stroke='%231f2a36' stroke-width='3.2' stroke-linejoin='round'/%3E%3Cpath d='M3 2 L3 21.5 L7.8 17 L11.2 24.6 L14.6 23.1 L11.3 15.6 L17.8 15.6 Z' fill='%23058bff' stroke='%23ffffff' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E") 3 2, auto;
+    }
+
+    a[href],
+    button,
+    summary,
+    select,
+    label,
+    [role="button"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="option"],
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="file"] {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M3 2 L3 21.5 L7.8 17 L11.2 24.6 L14.6 23.1 L11.3 15.6 L17.8 15.6 Z' fill='none' stroke='%231f2a36' stroke-width='3.2' stroke-linejoin='round'/%3E%3Cpath d='M3 2 L3 21.5 L7.8 17 L11.2 24.6 L14.6 23.1 L11.3 15.6 L17.8 15.6 Z' fill='%230067c7' stroke='%23ffffff' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E") 3 2, pointer;
+    }
+
+    :is(a[href], button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"]):active {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M3 2 L3 21.5 L7.8 17 L11.2 24.6 L14.6 23.1 L11.3 15.6 L17.8 15.6 Z' fill='none' stroke='%231f2a36' stroke-width='3.2' stroke-linejoin='round'/%3E%3Cpath d='M3 2 L3 21.5 L7.8 17 L11.2 24.6 L14.6 23.1 L11.3 15.6 L17.8 15.6 Z' fill='%230067c7' stroke='%23ffffff' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E") 3 2, pointer;
+    }
+
+    input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="color"]),
+    textarea,
+    [contenteditable="true"] {
+      cursor: text;
+    }
+
+    :disabled,
+    [aria-disabled="true"] {
+      cursor: not-allowed;
+    }
+  }
+}
+
+/* Bubbles that rise from the cursor (components/CursorBubbles.tsx). */
+.bubble-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bubble {
+  position: absolute;
+  border: 1.5px solid #383838;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 35%, #fff 0 22%, #ceebff 28%);
+  translate: -50% -50%;
+}
+
+.bubble-trail {
+  animation: bubble-rise 0.9s ease-out forwards;
+}
+
+.bubble-pop {
+  animation: bubble-pop 0.55s ease-out forwards;
+}
+
+@keyframes bubble-rise {
+  from { opacity: 0.9; transform: translate(0, 0) scale(0.6); }
+  to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1); }
+}
+
+@keyframes bubble-pop {
+  from { opacity: 1; transform: translate(0, 0) scale(0.4); }
+  to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.1); }
+}
+
+/* No scrollbars anywhere: pages and panels still scroll with the wheel,
+   trackpad, touch and keyboard, but no bar is drawn. This also stops the
+   layout shifting sideways when a page gains or loses its scrollbar. */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Buttons sit on a hard charcoal shadow, rise a little on hover and press
+   flat when clicked. A utility, so component classes can @apply it. */
+@utility press {
+  box-shadow: 3px 3px 0 0 var(--border);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.2s ease;
+
+  &:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 0 var(--border);
+  }
+
+  &:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 0 var(--border);
+    transition-duration: 0.06s;
+  }
+
+  &:disabled {
+    box-shadow: none;
+  }
+}
+
 @layer components {
   /* Paper grain, as an overlay so it works on any background colour. In this
      layer, so a utility such as `absolute` still overrides its position. */
@@ -126,12 +201,13 @@ html {
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background-image: url("/art/grain.svg");
+    /* Inlined, so the texture paints with the first frame instead of popping in. */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'%3E %3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E %3CfeTurbulence type='fractalNoise' baseFrequency='1.9' numOctaves='3' stitchTiles='stitch' seed='7'/%3E %3CfeColorMatrix type='luminanceToAlpha'/%3E %3CfeComponentTransfer%3E %3CfeFuncA type='discrete' tableValues='0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1'/%3E %3C/feComponentTransfer%3E %3C/filter%3E %3Crect width='300' height='300' filter='url%28%23g%29' fill='%23000' opacity='.11'/%3E %3C/svg%3E");
     opacity: var(--grain-opacity);
   }
 
   .btn {
-    @apply inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[13px] border border-border bg-card px-4 font-mono text-sm font-semibold uppercase text-foreground transition-colors duration-200 hover:bg-track disabled:cursor-not-allowed disabled:opacity-50 max-md:h-10 max-md:px-3 max-md:text-xs;
+    @apply press inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[13px] border border-border bg-card px-4 font-mono text-sm font-semibold uppercase text-foreground hover:bg-track disabled:cursor-not-allowed disabled:opacity-50 max-md:h-10 max-md:px-3 max-md:text-xs;
   }
 
   .btn-primary {
@@ -178,11 +254,6 @@ html {
     @apply rounded-[24px] border border-border bg-card p-6 max-md:rounded-[20px] max-md:p-4;
   }
 
-  /* A card that lifts with a hard shadow on hover, like the landing cards. */
-  .card-lift {
-    @apply transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_var(--border)];
-  }
-
   .field {
     @apply h-11 rounded-[13px] border border-border bg-paper px-3 text-base max-md:h-10 max-md:text-sm;
   }
@@ -195,7 +266,7 @@ html {
   /* ---- Landing page ---- */
 
   .l-btn {
-    @apply inline-flex h-12 items-center justify-center gap-2 rounded-[13px] border border-ink px-4 font-mono text-lg font-semibold uppercase text-ink transition-colors duration-300 max-lg:h-11 max-lg:text-sm;
+    @apply press inline-flex h-12 items-center justify-center gap-2 rounded-[13px] border border-ink px-4 font-mono text-lg font-semibold uppercase text-ink disabled:cursor-not-allowed disabled:opacity-50 max-lg:h-11 max-lg:text-sm;
   }
 
   .l-btn-lime {
@@ -246,6 +317,27 @@ html.js [data-reveal]:not([data-shown]) {
 
 .float {
   animation: float 7s ease-in-out infinite;
+}
+
+/* Dropdown lists and menus pop in softly. */
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.pop-in {
+  animation: pop-in 0.14s ease-out;
+  transform-origin: top;
+}
+
+/* Page content appears once its data is ready, instead of after a skeleton. */
+@keyframes appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.appear {
+  animation: appear 0.2s ease-out;
 }
 
 @keyframes marquee {

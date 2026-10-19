@@ -209,15 +209,15 @@ export function FileItem({
   );
 
   const transfer = working && fraction !== undefined && (
-    <div className="flex items-center gap-2 text-xs text-muted" aria-live="polite">
-      <div className="h-1.5 w-16 overflow-hidden rounded bg-track">
-        <div className="h-full bg-accent" style={{ width: `${fraction * 100}%` }} />
-      </div>
+    <span className="flex min-w-0 items-center gap-2 text-xs text-muted" aria-live="polite">
+      <span className="h-1.5 w-16 shrink-0 overflow-hidden rounded bg-track">
+        <span className="block h-full bg-accent" style={{ width: `${fraction * 100}%` }} />
+      </span>
       {fraction >= 0.99 ? "Checking…" : `${Math.round(fraction * 100)}%`}
-      <button className="text-accent hover:underline" onClick={() => cancelTransfer(file.id)}>
+      <button className="font-semibold text-foreground hover:underline" onClick={() => cancelTransfer(file.id)}>
         Cancel
       </button>
-    </div>
+    </span>
   );
 
   const name = (
@@ -240,14 +240,24 @@ export function FileItem({
     </span>
   );
 
+  // In search results the folder leads the details line, so rows keep one height.
   const folder = showFolder && (
-    <button className="flex max-w-full items-center gap-1 truncate text-xs text-accent hover:underline"
+    <button className="flex shrink-0 items-center gap-1 font-medium text-foreground hover:underline"
       onClick={onShowFolder}>
       <Icon name="folder" className="h-3 w-3" />
       {file.folder === ROOT ? "My files" : file.folder.slice(1)}
       <span className="sr-only"> (open folder {folderName(file.folder) || "My files"})</span>
     </button>
   );
+
+  const details = (text: string) =>
+    transfer || (
+      <span className="flex min-w-0 items-center gap-1.5 text-sm font-light text-muted">
+        {folder}
+        {folder && <span aria-hidden>·</span>}
+        <span className="truncate">{text}</span>
+      </span>
+    );
 
   return (
     <li
@@ -258,47 +268,43 @@ export function FileItem({
       }}
       data-file-id={file.id}
       {...touch}
-      className={`group relative flex gap-4 rounded-[18px] border border-border bg-card p-3 font-sans text-base transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_0_var(--border)] md:px-4 ${grid ? "row-tile flex-col" : "row-line items-center"} ${
-        selected ? "bg-lime/50 ring-1 ring-border" : ""
-      }`}
+      className={`group relative flex overflow-hidden rounded-[16px] border border-border font-sans text-base ${
+        grid ? "h-[176px] flex-col gap-2 p-2.5" : "h-14 items-center gap-3 px-3 md:gap-4"
+      } ${selected ? "bg-lime/60" : "bg-paper"}`}
     >
       {grid ? (
         <>
-          <div className="relative">
-            <button className="block w-full" tabIndex={-1} aria-hidden onClick={viewable ? onOpen : undefined}>
+          <div className="relative h-[96px] shrink-0 overflow-hidden rounded-[10px] border border-border/20">
+            <button className="block h-full w-full" tabIndex={-1} aria-hidden onClick={viewable ? onOpen : undefined}>
               <Thumb file={file} large />
             </button>
             <div className="absolute left-1.5 top-1.5 rounded bg-card/90 p-1">{checkbox}</div>
           </div>
-          <div className="flex items-start gap-1">
-            <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 items-start gap-1">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               {name}
-              <p className="truncate text-xs text-muted">{formatBytes(file.size)} · {formatDate(file.uploadedAt)}</p>
-              {folder}
+              {details(`${formatBytes(file.size)} · ${formatDate(file.uploadedAt)}`)}
             </div>
-            <Menu label={`Actions for ${file.name}`} items={items} />
+            <Menu label={`Actions for ${file.name}`} items={items} compact />
           </div>
-          {transfer}
         </>
       ) : (
         <>
           {checkbox}
           <Thumb file={file} />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             {name}
-            <p className="truncate font-sans text-sm font-light text-muted">{meta}</p>
-            {folder}
-            {transfer}
+            {details(meta)}
           </div>
           <button
-            className="btn btn-icon hidden sm:inline-flex"
+            className="btn btn-icon hidden h-9 w-9 sm:inline-flex"
             aria-label={`Download ${file.name}`}
             disabled={working}
             onClick={() => downloadFile(file.id)}
           >
             <Icon name="download" />
           </button>
-          <Menu label={`Actions for ${file.name}`} items={items} />
+          <Menu label={`Actions for ${file.name}`} items={items} compact />
         </>
       )}
     </li>

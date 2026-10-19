@@ -57,7 +57,7 @@ export function Toasts() {
   const { notices } = useNebula();
 
   return (
-    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 ml-auto flex max-w-sm flex-col gap-2 sm:left-auto">
+    <div className="pointer-events-none fixed inset-x-4 top-24 z-50 flex max-w-sm flex-col gap-2 sm:left-auto">
       {notices.map((notice) => (
         <Toast key={notice.id} notice={notice} />
       ))}

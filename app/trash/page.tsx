@@ -49,7 +49,7 @@ export default function TrashPage() {
     <AppPage
       tag="Trash"
       title="Trash"
-      lead={`Trashed files still count against each account. They are deleted for good ${TRASH_DAYS} days after they were trashed.`}
+      lead="Trashed files still count against each account until they are deleted for good."
       actions={
         <button
           className="l-btn l-btn-plain"
@@ -62,19 +62,29 @@ export default function TrashPage() {
         </button>
       }
     >
-      <div data-reveal>
-        <StatRow>
+      <div className="grid gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[300px_1fr] lg:grid-rows-[minmax(0,1fr)]">
+      <aside aria-label="Overview" className="flex flex-col gap-5 lg:min-h-0 lg:overflow-hidden">
+        <StatRow compact>
           <Stat value={files.length} label="in the trash" />
           <Stat value={formatBytes(held)} label="to free" note="counting safe copies" />
           <Stat value={`${TRASH_DAYS} days`} label="kept" note="then deleted for good" />
           <Stat value={files.filter((file) => daysLeft(file, now) <= 3).length} label="due soon" note="in 3 days or less" />
         </StatRow>
-      </div>
+        <div className="card flex flex-col items-center gap-2 bg-paper text-center lg:[@media(max-height:820px)]:hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG illustration */}
+          <img src="/art/bin.svg" alt="" className="h-32 w-auto" />
+          <p className="font-sans text-sm font-light text-muted">
+            Restore anything within {TRASH_DAYS} days. After that it is deleted
+            from every account it was stored in.
+          </p>
+        </div>
+      </aside>
 
-      <section data-reveal aria-label="Trashed files list" className="space-y-4 rounded-[34px] border border-border bg-card p-6 max-md:rounded-[24px] max-md:p-3">
+      <section aria-label="Trashed files list" className="flex flex-col overflow-hidden rounded-[24px] border border-border bg-card lg:min-h-0">
+      <div className="shrink-0 border-b border-border px-4 py-3">
 
       {files.length > 0 && (
-        <div className={`flex flex-wrap items-center gap-2 text-sm ${selected.length > 0 ? "card sticky top-2 z-20 p-2 shadow-md" : ""}`}>
+        <div className={`flex flex-wrap items-center gap-2 font-sans text-base ${selected.length > 0 ? "rounded-[14px] border border-border bg-lime p-2" : ""}`}>
           <label className="flex items-center gap-2 px-1">
             <input
               type="checkbox"
@@ -108,6 +118,9 @@ export default function TrashPage() {
         </div>
       )}
 
+      {files.length === 0 && <p className="py-1 font-sans text-base text-muted">Nothing to select.</p>}
+      </div>
+      <div className="space-y-2 p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
       <ul className="space-y-2" aria-label="Trashed files">
         {files.map((file) => {
           const working = busy.includes(file.id);
@@ -115,7 +128,7 @@ export default function TrashPage() {
 
           return (
             <li key={file.id}
-              className={`card flex items-center gap-3 p-3 text-sm ${selected.includes(file.id) ? "border-accent ring-1 ring-accent" : ""}`}>
+              className={`flex items-center gap-4 rounded-[18px] border border-border p-3 font-sans text-base md:px-4 ${selected.includes(file.id) ? "bg-lime/50" : "bg-paper"}`}>
               <input
                 type="checkbox"
                 className="h-4 w-4 shrink-0 accent-accent"
@@ -169,7 +182,9 @@ export default function TrashPage() {
           <p className="font-sans text-base font-light text-muted">Files you trash wait here for {TRASH_DAYS} days.</p>
         </div>
       )}
+      </div>
       </section>
+      </div>
     </AppPage>
   );
 }

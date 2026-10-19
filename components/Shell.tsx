@@ -4,13 +4,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useNebula } from "@/context/NebulaContext";
 import { chooseMode, hasWorkInProgress } from "@/lib/nebula-store";
-import { Container, GrainSection } from "./landing/parts";
 import { useReveal } from "./landing/motion";
 import { Modes } from "./landing/sections";
+import { CursorBubbles } from "./CursorBubbles";
 import { DialogHost } from "./DialogHost";
 import { SiteHeader } from "./site/SiteHeader";
 import { SiteFooter } from "./site/SiteFooter";
 import { Toasts } from "./Toasts";
+import { UploadQueue } from "./UploadQueue";
 
 // Public pages (the landing page and what it links to) are readable before a
 // mode is chosen and always use the light palette they were designed in.
@@ -41,18 +42,10 @@ function OfflineBanner() {
   );
 }
 
+// While the saved file list is read (usually a few dozen milliseconds), the
+// page area stays plain rather than flashing a skeleton.
 function Loading() {
-  return (
-    <GrainSection label="Loading">
-      <Container className="py-14">
-        <div aria-busy="true" aria-label="Loading Nebula" className="space-y-6">
-          <div className="skeleton h-12 w-64" />
-          <div className="skeleton h-40" />
-          <div className="skeleton h-24" />
-        </div>
-      </Container>
-    </GrainSection>
-  );
+  return <div aria-busy="true" aria-label="Loading Nebula" className="flex-1" />;
 }
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -66,6 +59,11 @@ export function Shell({ children }: { children: ReactNode }) {
 
   // Sections rise into view as they are scrolled to, on every page.
   useReveal(`${pathname}|${mode}`);
+
+  // Each page starts at its top, unless the link points into it (/#modes).
+  useEffect(() => {
+    if (!window.location.hash) window.scrollTo({ top: 0, behavior: "instant" });
+  }, [pathname]);
 
   // Closing the tab would stop uploads, downloads and bulk jobs halfway.
   useEffect(() => {
@@ -88,7 +86,8 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className={`flex min-h-full flex-1 flex-col ${publicPage ? "theme-light bg-background" : ""}`}>
+    // App pages fill exactly one screen on large displays; public pages scroll.
+    <div className={`theme-light flex min-h-full flex-1 flex-col bg-background ${publicPage ? "" : "lg:h-dvh lg:min-h-0 lg:flex-none lg:overflow-hidden"}`}>
       <OfflineBanner />
       {mode === "public" && (
         <div className="bg-accent px-4 py-2 text-center font-sans text-sm text-accent-foreground">
@@ -98,14 +97,22 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <SiteHeader started={started} inApp={started && !publicPage} />
+      <SiteHeader started={started} inApp={started && !publicPage} ready={mode !== "loading"} />
 
-      <main className="flex-1">{content}</main>
+      <main className={publicPage ? "flex-1" : "flex flex-1 flex-col lg:min-h-0"}>
+        {publicPage || mode === "loading" ? (
+          content
+        ) : (
+          <div className="appear flex flex-1 flex-col lg:min-h-0">{content}</div>
+        )}
+      </main>
 
-      <SiteFooter started={started} />
+      {publicPage && <SiteFooter />}
 
+      {started && !publicPage && <UploadQueue />}
       <Toasts />
       <DialogHost />
+      <CursorBubbles />
     </div>
   );
 }

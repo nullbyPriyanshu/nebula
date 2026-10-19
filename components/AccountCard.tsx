@@ -6,6 +6,8 @@ import { formatBytes } from "@/lib/format";
 import type { AccountRecord } from "@/lib/index-types";
 import {
   ask,
+  askText,
+  notify,
   disconnectAccount,
   filesIn,
   moveOffAccount,
@@ -16,54 +18,11 @@ import {
   type AccountRuntime,
 } from "@/lib/nebula-store";
 import { Icon } from "./Icon";
+import { Menu } from "./Menu";
 
 const GB = 1024 ** 3;
 
 const DRAG_TYPE = "application/x-nebula-account";
-
-// Saves on blur or Enter, never mid-typing, and refuses negative numbers.
-function BufferField({ account }: { account: AccountRecord }) {
-  const saved = String(account.buffer / GB);
-  const [draft, setDraft] = useState<string | null>(null);
-
-  const save = () => {
-    if (draft === null) return;
-
-    const value = Number(draft);
-
-    if (draft.trim() !== "" && Number.isFinite(value) && value >= 0) {
-      setBuffer(account.email, value * GB);
-    }
-
-    setDraft(null);
-  };
-
-  const value = draft ?? saved;
-  const invalid = draft !== null && (draft.trim() === "" || !(Number(draft) >= 0));
-
-  return (
-    <label className="flex flex-wrap items-center gap-2 font-sans text-base text-muted">
-      Keep free for Gmail and Photos
-      <input
-        type="number"
-        inputMode="decimal"
-        min={0}
-        step={0.5}
-        className={`field w-24 ${invalid ? "border-danger" : ""}`}
-        aria-invalid={invalid}
-        value={value}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={save}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") save();
-          if (event.key === "Escape") setDraft(null);
-        }}
-      />
-      GB
-      {invalid && <span className="text-danger">Enter 0 or more</span>}
-    </label>
-  );
-}
 
 export function AccountCard({
   account,
@@ -168,79 +127,107 @@ export function AccountCard({
     },
   };
 
+  // "Keep free for Gmail and Photos", asked for in a small dialog.
+  const editBuffer = async () => {
+    const answer = await askText({
+      title: "Keep free for Gmail and Photos",
+      body: `Nebula leaves this much of ${account.email} unused, so Gmail and Google Photos keep working.`,
+      label: "Gigabytes",
+      value: String(account.buffer / GB),
+      confirm: "Save",
+    });
+
+    if (answer === null) return;
+
+    const value = Number(answer.replace(",", "."));
+
+    if (!Number.isFinite(value) || value < 0) {
+      notify("error", "Enter 0 or a positive number of gigabytes.");
+
+      return;
+    }
+
+    setBuffer(account.email, value * GB);
+  };
+
+  const fraction = total > 0 ? Math.min(1, used / total) : 0;
+
   return (
-    <li {...dragProps} data-reveal className={`card card-lift space-y-5 ${over ? "ring-2 ring-accent" : ""}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="cursor-grab text-muted" title="Drag to change priority">
-            <Icon name="drag" />
+    <li
+      {...dragProps}
+      className={`flex h-[68px] items-center gap-3 rounded-[16px] border border-border px-3 font-sans transition-colors md:gap-4 md:px-4 ${
+        over ? "bg-lime" : "bg-paper"
+      }`}
+    >
+      <span className="hidden cursor-grab text-muted sm:block" title="Drag to change priority">
+        <Icon name="drag" />
+      </span>
+      <span
+        title={`Priority ${position + 1}`}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-card font-mono text-sm font-bold"
+      >
+        {position + 1}
+      </span>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <p className="truncate text-base font-semibold">{account.email}</p>
+          <span className={`shrink-0 text-xs font-medium ${connected ? "text-[#1f8f3a]" : "text-danger"}`}>
+            {connected ? "● Connected" : "● Signed out"}
           </span>
-          <div className="min-w-0">
-            <p className="truncate font-sans text-xl font-semibold">{account.email}</p>
-            <p className="font-sans text-sm text-muted">
-              Priority {position + 1} ·{" "}
-              <span className={connected ? "text-foreground" : "text-danger"}>
-                {connected ? "Connected" : "Not connected"}
-              </span>
-              {" · "}
-              <Link className="text-accent hover:underline"
-                href={`/files/?account=${encodeURIComponent(account.email)}`}>
+        </div>
+        {connected && total > 0 ? (
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-full max-w-[220px] overflow-hidden rounded-full border border-border bg-track">
+              <div className="h-full rounded-full bg-accent" style={{ width: `${fraction * 100}%` }} />
+            </div>
+            <span className="hidden truncate text-xs text-muted md:inline">
+              {formatBytes(used)} of {formatBytes(total)} · {formatBytes(usable)} usable ·{" "}
+              <Link className="underline underline-offset-2" href={`/files/?account=${encodeURIComponent(account.email)}`}>
                 {held.length} file{held.length === 1 ? "" : "s"}
               </Link>
-            </p>
+            </span>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn btn-icon" disabled={position === 0} aria-label={`Raise priority of ${account.email}`}
-            onClick={() => movePriority(account.email, -1)}>
-            ↑
-          </button>
-          <button className="btn btn-icon" disabled={position === count - 1} aria-label={`Lower priority of ${account.email}`}
-            onClick={() => movePriority(account.email, 1)}>
-            ↓
-          </button>
-          {connected ? (
-            <button className="btn" onClick={() => disconnectAccount(account.email)}>
-              Disconnect
-            </button>
-          ) : (
-            <button className="btn btn-primary" onClick={() => reconnectAccount(account.email)}>
-              Reconnect
-            </button>
-          )}
-          {held.length > 0 && (
-            <button className="btn" disabled={!connected} title={connected ? undefined : "Reconnect first"}
-              onClick={() => void moveOff()}>
-              Move files off
-            </button>
-          )}
-          <button className="btn btn-danger" onClick={remove}>
-            Remove
-          </button>
-        </div>
+        ) : (
+          <span className="truncate text-xs text-muted">
+            {connected
+              ? "Google reports no storage limit, so files are not placed here automatically."
+              : `${held.length} file${held.length === 1 ? "" : "s"} stored here · reconnect to use it`}
+          </span>
+        )}
       </div>
 
-      {connected && total > 0 && (
-        <>
-          <div className="h-3 overflow-hidden rounded-full border border-border bg-track">
-            <div className="h-full rounded-full bg-accent"
-              style={{ width: `${Math.min(100, (used / total) * 100)}%` }} />
-          </div>
-          <p className="font-sans text-base text-muted">
-            {formatBytes(used)} of {formatBytes(total)} used ·{" "}
-            <span className="text-foreground">{formatBytes(usable)} usable</span>
-          </p>
-        </>
+      {!connected && (
+        <button className="btn btn-primary h-9" onClick={() => reconnectAccount(account.email)}>
+          Reconnect
+        </button>
       )}
-
-      {connected && total === 0 && (
-        <p className="text-sm text-muted">
-          Google reports no storage limit for this account, so Nebula will not
-          place files here automatically.
-        </p>
-      )}
-
-      <BufferField key={account.buffer} account={account} />
+      <div className="hidden gap-1.5 sm:flex">
+        <button className="btn btn-icon h-9 w-9" disabled={position === 0} aria-label={`Raise priority of ${account.email}`}
+          onClick={() => movePriority(account.email, -1)}>
+          <Icon name="up" />
+        </button>
+        <button className="btn btn-icon h-9 w-9" disabled={position === count - 1} aria-label={`Lower priority of ${account.email}`}
+          onClick={() => movePriority(account.email, 1)}>
+          <Icon name="down" />
+        </button>
+      </div>
+      <Menu
+        compact
+        label={`Actions for ${account.email}`}
+        items={[
+          ...(position > 0 ? [{ label: "Move up", icon: "up" as const, onSelect: () => movePriority(account.email, -1) }] : []),
+          ...(position < count - 1 ? [{ label: "Move down", icon: "down" as const, onSelect: () => movePriority(account.email, 1) }] : []),
+          { label: `Keep free: ${account.buffer / GB} GB`, icon: "rename", onSelect: () => void editBuffer() },
+          ...(held.length > 0
+            ? [{ label: "Move files off", icon: "move" as const, onSelect: () => void moveOff(), disabled: !connected }]
+            : []),
+          connected
+            ? { label: "Disconnect", icon: "close" as const, onSelect: () => disconnectAccount(account.email) }
+            : { label: "Reconnect", icon: "restore" as const, onSelect: () => void reconnectAccount(account.email) },
+          { label: "Remove from Nebula", icon: "trash", danger: true, onSelect: () => void remove() },
+        ]}
+      />
     </li>
   );
 }
