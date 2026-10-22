@@ -56,6 +56,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const started = mode === "private" || mode === "public";
   const publicPage = isPublic(pathname);
   const working = hasWorkInProgress(state);
+  // Only a running app page is fitted to one screen; the mode choice shown
+  // before that is a normal page that scrolls.
+  const fitted = started && !publicPage;
 
   // Sections rise into view as they are scrolled to, on every page.
   useReveal(`${pathname}|${mode}`);
@@ -87,7 +90,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     // App pages fill exactly one screen on large displays; public pages scroll.
-    <div className={`theme-light flex min-h-full flex-1 flex-col bg-background ${publicPage ? "" : "lg:h-dvh lg:min-h-0 lg:flex-none lg:overflow-hidden"}`}>
+    <div className={`theme-light flex min-h-full flex-1 flex-col bg-background ${fitted ? "lg:h-dvh lg:min-h-0 lg:flex-none lg:overflow-hidden" : ""}`}>
       <OfflineBanner />
       {mode === "public" && (
         <div className="bg-accent px-4 py-2 text-center font-sans text-sm text-accent-foreground">
@@ -99,7 +102,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <SiteHeader started={started} inApp={started && !publicPage} ready={mode !== "loading"} />
 
-      <main className={publicPage ? "flex-1" : "flex flex-1 flex-col lg:min-h-0"}>
+      <main className={fitted ? "flex flex-1 flex-col lg:min-h-0" : "flex-1"}>
         {publicPage || mode === "loading" ? (
           content
         ) : (

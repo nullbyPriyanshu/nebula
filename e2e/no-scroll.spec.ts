@@ -59,3 +59,17 @@ for (const screen of SCREENS) {
     expect(problems).toEqual([]);
   });
 }
+
+// A first visit straight to an app page shows the mode choice first. It is
+// taller than the screen, so it must scroll like a normal page.
+test("the mode choice on an app page scrolls to its buttons", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto("/trash/");
+
+  const choose = page.getByRole("button", { name: "My own device" });
+
+  await choose.scrollIntoViewIfNeeded();
+  await expect(choose).toBeInViewport();
+  await choose.click();
+  await expect(page.getByRole("heading", { name: "Trash", level: 1 })).toBeVisible();
+});
