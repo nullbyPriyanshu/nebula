@@ -25,7 +25,11 @@ export const metadata: Metadata = {
   title: "Nebula",
   description: "Pool several Google Drive accounts into one storage space.",
   referrer: "no-referrer",
-  icons: { apple: "/apple-icon-180.png" },
+  // The tab icon: the logo as SVG where supported, favicon.ico elsewhere.
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: "/apple-icon-180.png",
+  },
   appleWebApp: { capable: true, title: "Nebula", statusBarStyle: "default" },
 };
 
